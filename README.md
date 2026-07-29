@@ -3,7 +3,7 @@
 Developed and maintained by **Melizza Anievas**  
 * Global FinTech Policy & Geopolitical Macro Strategy Advisor | Co-Founder, Women in Web3 Hong Kong
 
-*  
+  
 ✍️ **Read Long-Form Briefings on Substack:** [Rule of Innovation](https://substack.com)  
 💼 **Consulting Enquiries:** Connect via [LinkedIn](https://linkedin.com)
 
