@@ -32,7 +32,7 @@ The interactive workspace correlates regulatory volatility with infrastructure v
 
 The entire ecosystem is engineered using a robust, highly modular open-source stack designed to maximize data persistence and layout speed without incurring infrastructure hosting fees.
 
-Streamlit Web App Frontend(Secure API Transport over HTTPS
+Streamlit Web App Frontend `(`Secure API Transport over HTTPS`)`
 Airtable Cloud Relational Database - \`[`Strict Schema Design; Moderation Engine Gateway ('Pending' Status)`]`
 
 * **Frontend Engine:** `Streamlit` framework deploying custom HTML/CSS wrappers for high-density, responsive, terminal-style components.
