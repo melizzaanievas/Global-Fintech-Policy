@@ -1,7 +1,7 @@
 # 🏛️ Global Fintech Regulatory & Macroeconomic Intelligence Matrix
 
 Developed and maintained by **Melizza Anievas**  
-* Global FinTech Policy & Geopolitical Macro Strategy Advisor | Co-Founder, Women in Web3 Hong Kong *  
+* Global FinTech Policy & Geopolitical Macro Strategy Advisor | Co-Founder, Women in Web3 Hong Kong 
 ✍️ **Read Long-Form Briefings on Substack:** [Rule of Innovation](https://substack.com)  
 💼 **Consulting Enquiries:** Connect via [LinkedIn](https://linkedin.com)
 
@@ -30,7 +30,8 @@ The interactive workspace correlates regulatory volatility with infrastructure v
 
 The entire ecosystem is engineered using a robust, highly modular open-source stack designed to maximize data persistence and layout speed without incurring infrastructure hosting fees.
 
-┌────────────────────────────────────────────────────────┐│               Streamlit Web App Frontend               │└───────────────────────────┬────────────────────────────┘│(Secure API Transport over HTTPS)│▼┌────────────────────────────────────────────────────────┐│           Airtable Cloud Relational Database           ││   - Strict Schema Design                               ││   - Moderation Engine Gateway ('Pending' Status)        │└────────────────────────────────────────────────────────┘
+Streamlit Web App Frontend(Secure API Transport over HTTPS
+Airtable Cloud Relational Database - \`[`Strict Schema Design; Moderation Engine Gateway ('Pending' Status)`]`
 
 * **Frontend Engine:** `Streamlit` framework deploying custom HTML/CSS wrappers for high-density, responsive, terminal-style components.
 * **Data Visualization:** `Plotly Express` and `Plotly Graph Objects` handling dynamic, theme-responsive multi-layered time-series and polar coordinate vectors.
