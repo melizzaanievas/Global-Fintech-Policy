@@ -1,7 +1,4 @@
-# Global-Fintech-Policy
-Global FinTech Regulatory &amp; Macroeconomic Intelligence Matrix tracking cross-border policy shifts, network velocity, and investment readiness benchmarks.
-
-# 🏛️ Web3 Global Regulatory & Macroeconomic Intelligence Matrix
+# 🏛️ Global Fintech Regulatory & Macroeconomic Intelligence Matrix
 
 Developed and maintained by **Melizza Anievas**  
 * Global FinTech Policy & Geopolitical Macro Strategy Advisor | Co-Founder, Women in Web3 Hong Kong *  
