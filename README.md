@@ -8,7 +8,7 @@ Developed and maintained by **Melizza Anievas**
 ---
 
 ## 🌐 Live Platform
-👉 **Explore the Interactive Live Dashboard Here:** `[Click Here For Live Dashboard] (https://global-fintech-policy-4sm3hqbkqbptrbkp2gtgat.streamlit.app/)`  
+👉 **Explore the Interactive Live Dashboard Here:** [Click Here For Live Dashboard] (https://global-fintech-policy-4sm3hqbkqbptrbkp2gtgat.streamlit.app/)
 *(Hosted entirely on a secure, zero-cost public tier. Please allow a few seconds for the cloud container to initialize on first boot.)*
 
 ---
