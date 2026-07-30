@@ -1372,6 +1372,7 @@ available_hubs = ["All"] + sorted(
 st.sidebar.header("🎛️ Dashboard Controls")
 with st.sidebar.expander("🔎 Filter Intelligence", expanded=True):
     selected_geo = st.selectbox("Select Jurisdiction:", available_hubs)
+    selected_jurisdiction = selected_geo
     min_impact = st.slider("Minimum Policy Volatility Score", 1, 10, 5)
     st.caption(
         "All rankings, cards, radar traces, and matrix metrics update to match "
@@ -1420,6 +1421,73 @@ market_df       = pipeline.fetch_market_trends(years=5)
 
 macro_df = macro_df[macro_df["impact_score"] >= min_impact]
 
+# Keep the section-specific views aligned with the sidebar jurisdiction choice.
+# These views do not alter the source data used by Airtable matching/submissions.
+regional_jurisdiction_aliases = {
+    "Hong Kong (SFC / HKMA)": "Hong Kong (SFC)",
+    "Japan (FSA)": "Japan",
+    "South Korea (FSC)": "South Korea",
+    "Federal (SEC / CFTC)": "United States",
+    "New York (NYDFS)": "United States",
+    "Wyoming": "United States",
+    "Texas / Florida": "United States",
+    "FCA (Cryptoasset Registration)": "United Kingdom",
+    "HM Treasury": "United Kingdom",
+    "Bank of England / PRA": "United Kingdom",
+    "Channel Islands (JFSC / GFSC)": "United Kingdom",
+    "MiCA Regulation (EU-wide)": "European Union (MiCA)",
+    "Germany (BaFin)": "European Union (MiCA)",
+    "France (AMF)": "European Union (MiCA)",
+    "Lithuania / Malta": "European Union (MiCA)",
+    "Brazil": "LATAM (Brazil / Colombia)",
+    "Mexico": "LATAM (Brazil / Colombia)",
+    "Colombia": "LATAM (Brazil / Colombia)",
+    "Argentina": "LATAM (Brazil / Colombia)",
+    "Kenya": "Africa (Kenya / Nigeria / Rwanda)",
+    "Nigeria": "Africa (Kenya / Nigeria / Rwanda)",
+    "South Africa": "Africa (Kenya / Nigeria / Rwanda)",
+    "Rwanda": "Africa (Kenya / Nigeria / Rwanda)",
+}
+regional_jurisdictions_df = pd.DataFrame(
+    [
+        {
+            **jurisdiction,
+            "region": region_key,
+            "jurisdiction": regional_jurisdiction_aliases.get(
+                jurisdiction["name"], jurisdiction["name"]
+            ),
+        }
+        for region_key, region_data in REGIONAL_DATA.items()
+        for jurisdiction in region_data["jurisdictions"]
+    ]
+)
+if selected_jurisdiction != "All":
+    regional_jurisdictions_df = regional_jurisdictions_df[
+        regional_jurisdictions_df["jurisdiction"] == selected_jurisdiction
+    ].copy()
+
+timeline_jurisdiction_aliases = {
+    "Hong Kong (SFC)": "Hong Kong (SFC)",
+    "European Union": "European Union (MiCA)",
+    "Singapore (MAS)": "Singapore (MAS)",
+    "United States": "United States",
+}
+timeline_events_df = pd.DataFrame(
+    [
+        {
+            **event,
+            "filter_jurisdiction": timeline_jurisdiction_aliases.get(
+                event["jurisdiction"], event["jurisdiction"]
+            ),
+        }
+        for event in POLICY_EVENTS_TIMELINE
+    ]
+)
+if selected_jurisdiction != "All":
+    timeline_events_df = timeline_events_df[
+        timeline_events_df["filter_jurisdiction"] == selected_jurisdiction
+    ].copy()
+
 # ════════════════════════════════════════════════════════════════════════════════
 # SECTION 1: Regional Fintech Intelligence
 # ════════════════════════════════════════════════════════════════════════════════
@@ -1456,7 +1524,10 @@ for tab, region_key in zip(reg_tabs, ["APAC", "USA", "UK", "EU", "LATAM", "MENA"
     with tab:
         st.markdown(f"**Regional policy context:** {region['summary']}")
         st.markdown("**Featured jurisdictions and why they matter:**")
-        for jur in region["jurisdictions"]:
+        regional_rows = regional_jurisdictions_df[
+            regional_jurisdictions_df["region"] == region_key
+        ]
+        for jur in regional_rows.to_dict("records"):
             rating_band = regional_rating_band(jur["score"])
             label_text = {
                 "HIGH": "✅ Fintech-Friendly",
@@ -1611,7 +1682,14 @@ with ffi_tab1:
             f"<div style='background:#3B82F6;height:8px;border-radius:4px;width:{pct}%'></div></div>"
         )
 
-    for rank, row in enumerate(fintech_df.itertuples(), 1):
+    ranking_available = (
+        selected_jurisdiction == "All"
+        or selected_jurisdiction in fintech_df["jurisdiction"].astype(str).tolist()
+    )
+    if not ranking_available:
+        st.info("Not included in this ranking")
+    ranking_rows = fintech_df.itertuples() if ranking_available else []
+    for rank, row in enumerate(ranking_rows, 1):
         composite = float(row.composite_2026)
         bg, fg = rank_style(composite)
         score_band = "High" if composite >= 8 else ("Moderate" if composite >= 5 else "Low")
@@ -2014,7 +2092,11 @@ timeline_cats = st.multiselect(
     format_func=lambda x: CATEGORY_LABELS[x],
 )
 
-filtered_events = [e for e in POLICY_EVENTS_TIMELINE if e["category"] in timeline_cats]
+filtered_events = [
+    event
+    for event in timeline_events_df.to_dict("records")
+    if event["category"] in timeline_cats
+]
 
 fig = go.Figure()
 
