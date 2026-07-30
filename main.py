@@ -1,5 +1,6 @@
 import os
 import xml.etree.ElementTree as ET
+from html import escape
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -73,7 +74,11 @@ st.markdown("""
 .executive-cta.substack:hover { background:#FFFFFF; }
 .quick-links { width:100%; box-sizing:border-box; background:#F8FAFC; border:1px solid #D7DEE8; border-radius:8px; padding:10px 12px; margin:10px 0 8px 0; }
 .quick-links-label { color:#64748B; font-size:0.68rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; margin:0 0 7px 2px; }
-.quick-links a { width:100%; }
+.shortcut-link { display:flex; align-items:center; justify-content:center; min-height:42px; box-sizing:border-box; width:100%; padding:8px 12px; border:1px solid #CBD5E1; border-radius:6px; background:#FFFFFF; color:#1E293B !important; font-size:0.88rem; font-weight:650; text-align:center; text-decoration:none !important; }
+.shortcut-link:hover { background:#EFF6FF; border-color:#3B82F6; color:#1D4ED8 !important; }
+.sidebar-nav-link { display:block; padding:7px 9px; margin:3px 0; border-radius:5px; color:#334155 !important; font-size:0.86rem; text-decoration:none !important; }
+.sidebar-nav-link:hover { background:#E2E8F0; color:#1D4ED8 !important; }
+.dashboard-anchor { scroll-margin-top:16px; height:0; }
 @media (max-width: 600px) {
     .executive-banner { padding:17px 17px 19px 17px; }
     .executive-banner .executive-title { font-size:1.58rem; margin-bottom:16px; }
@@ -369,6 +374,225 @@ def approved_airtable_records(frame):
     return frame[
         frame["status"].astype(str).str.strip().str.casefold() == "approved"
     ].copy()
+
+POLICY_METADATA = {
+    "Hong Kong (SFC)": {
+        "instrument_name": "SFC VATP licensing regime and staking circulars",
+        "effective_date": "VATP regime: 1 Jun 2023; current update logged: 14 May 2026",
+        "supervisory_bodies": "Securities and Futures Commission (SFC); Hong Kong Monetary Authority (HKMA)",
+        "implementation_status": "In force; institutional staking and stablecoin rules are phased",
+        "jurisdiction_scope": "Hong Kong virtual-asset trading platforms and institutional market infrastructure",
+        "official_source": "https://www.sfc.hk/en/Welcome-to-the-Fintech-Contact-Point/Virtual-assets/Virtual-asset-trading-platforms-operators",
+    },
+    "European Union": {
+        "instrument_name": "Markets in Crypto-Assets Regulation (MiCA), Regulation (EU) 2023/1114",
+        "effective_date": "Stablecoin titles: 30 Jun 2024; CASP regime: 30 Dec 2024",
+        "supervisory_bodies": "European Securities and Markets Authority (ESMA); national competent authorities",
+        "implementation_status": "In force across the EU; supervisory convergence and enforcement continue",
+        "jurisdiction_scope": "EU-wide issuance, trading, custody, stablecoin, and crypto-asset service activity",
+        "official_source": "https://eur-lex.europa.eu/eli/reg/2023/1114/oj/eng",
+    },
+    "United States": {
+        "instrument_name": "Executive Order on Digital Asset Anti-Money Laundering Frameworks",
+        "effective_date": "Current policy update logged: 10 Jul 2026; agency implementation is staged",
+        "supervisory_bodies": "Treasury / FinCEN; Securities and Exchange Commission (SEC); Commodity Futures Trading Commission (CFTC)",
+        "implementation_status": "Federal policy direction; implementation depends on agency rules and enforcement",
+        "jurisdiction_scope": "Federal AML, market-structure, and institutional digital-asset activity",
+        "official_source": "https://www.sec.gov/digital-assets",
+    },
+    "Singapore (MAS)": {
+        "instrument_name": "Payment Services Act 2019/2023 and MAS tokenisation framework",
+        "effective_date": "PSA licensing: 28 Jan 2020; current RWA framework update logged: 15 Jan 2026",
+        "supervisory_bodies": "Monetary Authority of Singapore (MAS)",
+        "implementation_status": "In force; tokenisation implementation is phased through institutional pilots",
+        "jurisdiction_scope": "Digital-payment-token services, tokenised assets, and regulated financial institutions",
+        "official_source": "https://www.mas.gov.sg/regulation/guidelines/ps-g02-guidelines-on-provision-of-digital-payment-token-services-to-the-public",
+    },
+    "Brazil (BACEN)": {
+        "instrument_name": "Law 14.478/2022 Virtual Asset Service Provider framework and Drex pilot",
+        "effective_date": "Law 14.478 framework: 20 Jun 2023; Drex Phase II remains pilot-stage",
+        "supervisory_bodies": "Banco Central do Brasil (BACEN); Comissão de Valores Mobiliários (CVM)",
+        "implementation_status": "Licensing framework in force; CBDC and tokenisation components remain phased",
+        "jurisdiction_scope": "VASP licensing, payments, CBDC experimentation, and tokenised financial instruments",
+        "official_source": "https://www.bcb.gov.br/estabilidadefinanceira/drex",
+    },
+    "Mexico (Banxico)": {
+        "instrument_name": "Ley Fintech implementation framework and Banxico crypto-asset restrictions",
+        "effective_date": "Ley Fintech: 2018 framework; current exchange update logged: 30 May 2026",
+        "supervisory_bodies": "Banco de México (Banxico); Comisión Nacional Bancaria y de Valores (CNBV)",
+        "implementation_status": "In force with restrictive crypto-asset treatment and continuing implementation",
+        "jurisdiction_scope": "Fintech institutions, payment rails, exchanges, and cross-border settlement",
+        "official_source": "https://www.banxico.org.mx",
+    },
+    "Colombia (SFC)": {
+        "instrument_name": "SFC regulatory sandbox and tokenised sovereign-bond pilot",
+        "effective_date": "Sandbox framework active since 2020; current pilot update logged: 15 Jun 2026",
+        "supervisory_bodies": "Superintendencia Financiera de Colombia (SFC); Banco de la República",
+        "implementation_status": "Sandbox / pilot stage; permanent crypto-asset perimeter remains developing",
+        "jurisdiction_scope": "Regulated fintech experimentation, payments, and tokenised securities",
+        "official_source": "https://www.superfinanciera.gov.co/inicio/sandbox",
+    },
+    "UAE (VARA / DIFC)": {
+        "instrument_name": "VARA Virtual Assets and Related Activities Regulations and DIFC testing regime",
+        "effective_date": "VARA established 2022; rulebooks and institutional updates phased through 2026",
+        "supervisory_bodies": "Dubai Virtual Assets Regulatory Authority (VARA); DIFC / DFSA",
+        "implementation_status": "In force; licensing and custody requirements continue to expand",
+        "jurisdiction_scope": "Dubai virtual-asset activities, custody, exchanges, and innovation testing",
+        "official_source": "https://www.vara.ae/en/",
+    },
+    "Saudi Arabia (SAMA/CMA)": {
+        "instrument_name": "CMA digital-asset trading-platform consultation",
+        "effective_date": "Consultation update logged: 1 Jul 2026; not yet a complete enacted regime",
+        "supervisory_bodies": "Capital Market Authority (CMA); Saudi Central Bank (SAMA)",
+        "implementation_status": "Consultation / developing framework; implementation remains conditional",
+        "jurisdiction_scope": "Digital-asset trading, capital-markets activity, and Vision 2030 diversification",
+        "official_source": "https://cma.org.sa",
+    },
+    "Bahrain (CBB)": {
+        "instrument_name": "CBB Crypto-Asset Module and DeFi licensing amendment",
+        "effective_date": "Crypto-Asset Module: 2019; current DeFi update logged: 18 Jul 2026",
+        "supervisory_bodies": "Central Bank of Bahrain (CBB)",
+        "implementation_status": "In force; DeFi category and sandbox treatment are being expanded",
+        "jurisdiction_scope": "Crypto-asset services, exchanges, custody, and regulated DeFi activity",
+        "official_source": "https://www.cbb.gov.bh/crypto-assets",
+    },
+    "Nigeria (SEC / CBN)": {
+        "instrument_name": "SEC Nigeria Digital Assets Rules and CBN banking-access guidance",
+        "effective_date": "SEC rules: 2022; CBN banking-access reversal: 2024; current update: 20 May 2026",
+        "supervisory_bodies": "Securities and Exchange Commission Nigeria (SEC); Central Bank of Nigeria (CBN)",
+        "implementation_status": "Licensing framework in force; banking access is reopening on a regulated basis",
+        "jurisdiction_scope": "VASP licensing, banking access, payments, and diaspora remittance rails",
+        "official_source": "https://sec.gov.ng/for-investors/keep-track-of-circulars/statement-on-digital-assets-and-their-classification-and-treatment/",
+    },
+    "Kenya (CBK / CMA)": {
+        "instrument_name": "CMA draft crypto-asset framework and CBK regulatory sandbox",
+        "effective_date": "Sandbox active since 2021; current consultation update logged: 10 Jun 2026",
+        "supervisory_bodies": "Capital Markets Authority (CMA); Central Bank of Kenya (CBK)",
+        "implementation_status": "Consultation / sandbox stage; permanent VASP framework is not fully in force",
+        "jurisdiction_scope": "Crypto-asset services, mobile-money interoperability, and fintech pilots",
+        "official_source": "https://www.cma.or.ke/regulatory-sandbox/",
+    },
+    "South Africa (FSCA)": {
+        "instrument_name": "FSCA declaration of crypto assets as financial products",
+        "effective_date": "Declaration: 19 Oct 2022; current licensing deadline update logged: 5 Jul 2026",
+        "supervisory_bodies": "Financial Sector Conduct Authority (FSCA); South African Reserve Bank (SARB)",
+        "implementation_status": "In force; FSP licensing and supervisory transition continue",
+        "jurisdiction_scope": "Crypto-asset financial products, FSP licensing, custody, and institutional services",
+        "official_source": "https://www.fsca.co.za/Regulatory%20Frameworks/Pages/Regulatory-Frameworks.aspx",
+    },
+    "Rwanda (BNR)": {
+        "instrument_name": "National Fintech & Innovation Policy 2022–2027 and BNR innovation framework",
+        "effective_date": "Policy period: 2022–2027; current midterm update logged: 22 Jul 2026",
+        "supervisory_bodies": "National Bank of Rwanda (BNR); Kigali International Financial Centre (KIFC)",
+        "implementation_status": "Policy implementation / innovation-office stage; formal crypto perimeter developing",
+        "jurisdiction_scope": "Fintech innovation, payment infrastructure, sandbox activity, and regional HQ formation",
+        "official_source": "https://www.bnr.rw/financial-sector/financial-innovation",
+    },
+    "Japan": {
+        "instrument_name": "Payment Services Act crypto-asset exchange registration regime",
+        "effective_date": "Crypto-asset amendments: 2019–2023; current reference review: 2026",
+        "supervisory_bodies": "Japan Financial Services Agency (FSA)",
+        "implementation_status": "In force; registered-exchange and stablecoin requirements apply",
+        "jurisdiction_scope": "Registered crypto-asset exchanges, custody, stablecoins, and token issuance",
+        "official_source": "https://www.fsa.go.jp/policy/virtual_currency/index.html",
+    },
+    "South Korea": {
+        "instrument_name": "Virtual Asset User Protection Act",
+        "effective_date": "19 Jul 2024; institutional-market implementation is continuing",
+        "supervisory_bodies": "Financial Services Commission (FSC); Financial Intelligence Unit (FIU)",
+        "implementation_status": "In force; licensing, custody, and market-integrity implementation continues",
+        "jurisdiction_scope": "Virtual-asset exchanges, user protection, real-name accounts, and monitoring",
+        "official_source": "https://www.fsc.go.kr/eng",
+    },
+    "United Kingdom": {
+        "instrument_name": "Financial Services and Markets Act 2023 crypto-asset perimeter",
+        "effective_date": "FSMA 2023: 29 Jun 2023; detailed crypto regime is phased",
+        "supervisory_bodies": "Financial Conduct Authority (FCA); HM Treasury; Prudential Regulation Authority (PRA)",
+        "implementation_status": "In force in stages; secondary rules and registration requirements continue",
+        "jurisdiction_scope": "Cryptoasset promotions, registration, custody, trading, and financial-services perimeter",
+        "official_source": "https://www.fca.org.uk/firms/new-regime-cryptoasset-regulation",
+    },
+    "European Union (MiCA)": {
+        "instrument_name": "Markets in Crypto-Assets Regulation (MiCA), Regulation (EU) 2023/1114",
+        "effective_date": "Stablecoin titles: 30 Jun 2024; CASP regime: 30 Dec 2024",
+        "supervisory_bodies": "ESMA; EBA; national competent authorities",
+        "implementation_status": "In force across the EU; supervisory convergence continues",
+        "jurisdiction_scope": "EU-wide issuance, stablecoins, custody, trading, and crypto-asset services",
+        "official_source": "https://eur-lex.europa.eu/eli/reg/2023/1114/oj/eng",
+    },
+    "LATAM (Brazil / Colombia)": {
+        "instrument_name": "Brazil Law 14.478/2022 and Colombia SFC regulatory sandbox",
+        "effective_date": "Brazil framework: 20 Jun 2023; Colombia sandbox active since 2020",
+        "supervisory_bodies": "BACEN; CVM; Colombia SFC; Banco de la República",
+        "implementation_status": "Mixed: Brazil licensing framework in force; Colombia remains sandbox-led",
+        "jurisdiction_scope": "Regional VASP licensing, payment rails, tokenisation, and fintech pilots",
+        "official_source": "https://www.bcb.gov.br/estabilidadefinanceira/drex",
+    },
+    "Africa (Kenya / Nigeria / Rwanda)": {
+        "instrument_name": "SEC Nigeria Digital Assets Rules, CBK sandbox, and BNR fintech policy",
+        "effective_date": "Nigeria rules: 2022; Kenya sandbox: 2021; Rwanda policy period: 2022–2027",
+        "supervisory_bodies": "SEC Nigeria; CBN; CBK; CMA Kenya; BNR Rwanda",
+        "implementation_status": "Mixed: licensing, sandbox, and policy regimes are at different stages",
+        "jurisdiction_scope": "Regional VASP licensing, mobile-money rails, sandbox pilots, and fintech HQ formation",
+        "official_source": "https://sec.gov.ng/for-investors/keep-track-of-circulars/statement-on-digital-assets-and-their-classification-and-treatment/",
+    },
+}
+
+REGIONAL_METADATA = {
+    "Hong Kong (SFC / HKMA)": POLICY_METADATA["Hong Kong (SFC)"],
+    "Singapore (MAS)": POLICY_METADATA["Singapore (MAS)"],
+    "Japan (FSA)": POLICY_METADATA["Japan"],
+    "South Korea (FSC)": POLICY_METADATA["South Korea"],
+    "Australia (ASIC)": {
+        "instrument_name": "Treasury token-mapping consultation and ASIC digital-asset guidance",
+        "effective_date": "ASIC INFO 225 guidance in force; current framework remains phased",
+        "supervisory_bodies": "Australian Securities and Investments Commission (ASIC); Treasury",
+        "implementation_status": "Guidance / legislative reform stage; licensing perimeter continues to develop",
+        "jurisdiction_scope": "Digital-asset financial products, exchanges, custody, and licensing reform",
+        "official_source": "https://www.asic.gov.au/regulatory-resources/digital-transformation/digital-assets-financial-products-and-services/",
+    },
+    "Federal (SEC / CFTC)": POLICY_METADATA["United States"],
+    "UAE (VARA / DIFC)": POLICY_METADATA["UAE (VARA / DIFC)"],
+    "Bahrain": POLICY_METADATA["Bahrain (CBB)"],
+    "Nigeria": POLICY_METADATA["Nigeria (SEC / CBN)"],
+    "Kenya": POLICY_METADATA["Kenya (CBK / CMA)"],
+    "South Africa": POLICY_METADATA["South Africa (FSCA)"],
+    "Rwanda": POLICY_METADATA["Rwanda (BNR)"],
+    "MiCA Regulation (EU-wide)": POLICY_METADATA["European Union"],
+    "Brazil": POLICY_METADATA["Brazil (BACEN)"],
+    "Mexico": POLICY_METADATA["Mexico (Banxico)"],
+    "Colombia": POLICY_METADATA["Colombia (SFC)"],
+    "Saudi Arabia": POLICY_METADATA["Saudi Arabia (SAMA/CMA)"],
+}
+
+def enrich_policy_metadata(frame):
+    """Add analyst-facing policy metadata without overwriting submitted values."""
+    if frame.empty:
+        return frame
+    frame = frame.copy()
+    metadata_columns = [
+        "instrument_name", "effective_date", "supervisory_bodies",
+        "implementation_status", "jurisdiction_scope", "official_source",
+    ]
+    for column in metadata_columns:
+        if column not in frame.columns:
+            frame[column] = ""
+    for index, row in frame.iterrows():
+        metadata = POLICY_METADATA.get(str(row.get("jurisdiction", "")).strip(), {})
+        for column in metadata_columns:
+            current = row.get(column)
+            if pd.isna(current) or str(current).strip() == "":
+                frame.at[index, column] = metadata.get(column, "")
+    return frame
+
+def metadata_for_jurisdiction(jurisdiction):
+    """Resolve structured policy context for policy and index naming variants."""
+    name = str(jurisdiction or "").strip()
+    if name in POLICY_METADATA:
+        return POLICY_METADATA[name]
+    if name in REGIONAL_METADATA:
+        return REGIONAL_METADATA[name]
+    return {}
 
 def ensure_columns(frame, defaults):
     """Ensure downstream charts can render with partial Airtable schemas."""
@@ -1011,58 +1235,21 @@ with col_title:
 
 st.markdown("<div class='quick-links'><div class='quick-links-label'>Dashboard shortcuts</div></div>", unsafe_allow_html=True)
 quick_link_cols = st.columns(4)
-quick_links = [
+dashboard_links = [
     ("📊 Rankings Index", "#rankings-index"),
     ("📈 Market Timeline", "#market-timeline"),
     ("🌍 Benchmarking Matrix", "#benchmarking-matrix"),
     ("📥 Researcher Portal", "#researcher-portal"),
 ]
-for column, (label, anchor) in zip(quick_link_cols, quick_links):
+for column, (label, anchor) in zip(quick_link_cols, dashboard_links):
     with column:
-        st.link_button(label, anchor, use_container_width=True)
+        st.markdown(
+            f"<a class='shortcut-link' href='{anchor}' target='_self' "
+            f"aria-label='Jump to {label}'>{label}</a>",
+            unsafe_allow_html=True,
+        )
 
 st.divider()
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-st.sidebar.header("🎛️ Analytical Guardrails")
-ALL_REGIONS = [
-    "All Global Hubs",
-    "Hong Kong (SFC)", "United States", "European Union", "Singapore (MAS)",
-    "Brazil (BACEN)", "Mexico (Banxico)", "Colombia (SFC)",
-    "UAE (VARA / DIFC)", "Saudi Arabia (SAMA/CMA)", "Bahrain (CBB)",
-    "Nigeria (SEC / CBN)", "Kenya (CBK / CMA)", "South Africa (FSCA)", "Rwanda (BNR)",
-]
-selected_region = st.sidebar.selectbox("Jurisdiction Context", ALL_REGIONS)
-min_impact = st.sidebar.slider("Minimum Policy Volatility Score", 1, 10, 5)
-st.sidebar.caption(
-    "**Policy Volatility Score** (1–10): Magnitude of market disruption expected from a regulatory action. "
-    "Higher scores signal broader systemic impact on capital flows, institutional positioning, and compliance overhead."
-)
-st.sidebar.divider()
-st.sidebar.caption(
-    "**Impact Score** (on each policy card): Geopolitical and macroeconomic weight of the regulatory shift. "
-    "≥ 8 (🔴) = high-priority. 5–7 (🟡) = notable. < 5 = low-risk."
-)
-st.sidebar.divider()
-with st.sidebar.expander("📖 Dashboard User Guide", expanded=False):
-    st.markdown(
-        """
-        - **Filter Insights:** Select a region or jurisdiction to isolate macro developments and geopolitical context.
-        - **Analyze Benchmarks:** Hover over the horizontal stacked charts to compare regulatory clarity against readiness metrics.
-        - **Contribute Intelligence:** Expand the researcher portal at the bottom to submit field-validated updates.
-        """,
-        unsafe_allow_html=False,
-    )
-st.sidebar.divider()
-
-# Timeline category legend in sidebar
-st.sidebar.markdown("**📅 Timeline Event Categories**")
-for cat, color in CATEGORY_COLORS.items():
-    st.sidebar.markdown(
-        f"<span style='background:{color};padding:2px 8px;border-radius:4px;color:white;font-size:0.75rem;font-weight:600'>"
-        f"{CATEGORY_LABELS[cat]}</span>",
-        unsafe_allow_html=True,
-    )
 
 # ── Data fetch from Airtable ──────────────────────────────────────────────────
 resolved_policy_table = resolve_airtable_table_name()
@@ -1097,6 +1284,7 @@ macro_df = ensure_columns(macro_df, {
     "impact_score": 0,
     "date_logged": "",
 })
+macro_df = enrich_policy_metadata(macro_df)
 fintech_df = merge_friendliness_sources(
     friendliness_baseline_frame(),
     airtable_fintech_df,
@@ -1165,10 +1353,71 @@ if "composite_2026" in fintech_df.columns:
         na_position="last",
     )
 
+# Keep the complete index dataframe available for submission upserts. The
+# displayed dataframe below is intentionally narrowed to the selected hub.
+fintech_source_df = fintech_df.copy()
+available_hubs = ["All"] + sorted(
+    fintech_source_df["jurisdiction"]
+    .dropna()
+    .astype(str)
+    .str.strip()
+    .loc[lambda values: values.ne("")]
+    .unique()
+    .tolist()
+)
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+# The hub list is database-driven: it is rebuilt from the normalized dataframe
+# on every Streamlit rerun, including after an approved Airtable submission.
+st.sidebar.header("🎛️ Dashboard Controls")
+with st.sidebar.expander("🔎 Filter Intelligence", expanded=True):
+    selected_geo = st.selectbox("Select Jurisdiction:", available_hubs)
+    min_impact = st.slider("Minimum Policy Volatility Score", 1, 10, 5)
+    st.caption(
+        "All rankings, cards, radar traces, and matrix metrics update to match "
+        "the selected jurisdiction."
+    )
+    st.caption(
+        "Impact bands: ≥ 8 = high priority · 5–7 = notable · < 5 = low risk."
+    )
+
+with st.sidebar.expander("🧭 Jump to Section", expanded=True):
+    st.caption("Use these links to move directly to a dashboard section.")
+    for label, anchor in dashboard_links:
+        st.markdown(
+            f"<a class='sidebar-nav-link' href='{anchor}' target='_self'>{label}</a>",
+            unsafe_allow_html=True,
+        )
+
+with st.sidebar.expander("📖 Dashboard User Guide", expanded=False):
+    st.markdown(
+        """
+        - **Filter Insights:** Select a jurisdiction to isolate its macro developments and intelligence metrics.
+        - **Analyze Benchmarks:** Use the filtered cards, radar, and matrix to compare the selected hub's readiness profile.
+        - **Contribute Intelligence:** Expand the researcher portal at the bottom to submit field-validated updates.
+        """,
+        unsafe_allow_html=False,
+    )
+
+with st.sidebar.expander("📅 Timeline Event Legend", expanded=False):
+    for cat, color in CATEGORY_COLORS.items():
+        st.markdown(
+            f"<span style='display:inline-block;background:{color};padding:3px 8px;"
+            f"margin:2px 0;border-radius:4px;color:white;font-size:0.75rem;font-weight:600'>"
+            f"{CATEGORY_LABELS[cat]}</span>",
+            unsafe_allow_html=True,
+        )
+
+if selected_geo != "All":
+    fintech_df = fintech_df[
+        fintech_df["jurisdiction"] == selected_geo
+    ].copy()
+    macro_df = macro_df[
+        macro_df["jurisdiction"] == selected_geo
+    ].copy()
+
 market_df       = pipeline.fetch_market_trends(years=5)
 
-if selected_region != "All Global Hubs":
-    macro_df = macro_df[macro_df["jurisdiction"] == selected_region]
 macro_df = macro_df[macro_df["impact_score"] >= min_impact]
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -1237,6 +1486,18 @@ for tab, region_key in zip(reg_tabs, ["APAC", "USA", "UK", "EU", "LATAM", "MENA"
                     for source_title, source_url in regional_source_links(jur["source"])
                 )
             )
+            regional_meta = metadata_for_jurisdiction(jur["name"])
+            if regional_meta:
+                with st.expander("🔎 Implementation metadata", expanded=False):
+                    meta_left, meta_right = st.columns(2)
+                    with meta_left:
+                        st.markdown(f"**Instrument / legislation:** {regional_meta['instrument_name']}")
+                        st.markdown(f"**Effective / implementation date:** {regional_meta['effective_date']}")
+                        st.markdown(f"**Supervisory bodies:** {regional_meta['supervisory_bodies']}")
+                    with meta_right:
+                        st.markdown(f"**Status:** {regional_meta['implementation_status']}")
+                        st.markdown(f"**Scope:** {regional_meta['jurisdiction_scope']}")
+                        st.markdown(f"**Official starting point:** [{regional_meta['official_source']}]({regional_meta['official_source']})")
             regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
                 f"[{regional_news_title}]({regional_news_url})"
@@ -1267,7 +1528,7 @@ st.divider()
 # ════════════════════════════════════════════════════════════════════════════════
 # SECTION 1B: FinTech Friendliness Index
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown("<div id='rankings-index'></div>", unsafe_allow_html=True)
+st.markdown("<div class='dashboard-anchor' id='rankings-index'></div>", unsafe_allow_html=True)
 st.subheader("📊 FinTech Friendliness Index")
 st.markdown(
     "*Composite regulatory score across five institutional dimensions, scored 1–10. "
@@ -1276,6 +1537,27 @@ st.markdown(
     "IMF Digital Money Landscape, Chainalysis Geography of Cryptocurrency, "
     "LexisNexis Regulatory Intelligence, Bloomberg Intelligence FinTech.*"
 )
+with st.expander("ℹ️ Index methodology, scale & limitations", expanded=False):
+    st.markdown(
+        """
+        **Scale:** Each dimension is scored from **1 (high restriction / friction)** to
+        **10 (clear, accessible, and institutionally supportive)**. The composite is the
+        simple arithmetic mean of the five dimensions; it is not a probability, price
+        target, legal opinion, or investment recommendation.
+
+        **Dimensions:** Regulatory Clarity measures predictability and specificity of rules.
+        Sandbox Speed measures the practical speed of supervised testing. Licensing Ease
+        measures authorization burden in cost, time, and complexity. Tax Incentives
+        measures the relative fiscal environment. Institutional Banking measures access
+        to banking, custody, payment, and settlement rails.
+
+        **Interpretation:** 8–10 = comparatively supportive, 5–7 = mixed or developing,
+        and 1–4 = materially restrictive. Scores are policy-research indicators based on
+        the cited sources and review date, not a legally binding jurisdiction ranking.
+        Cross-jurisdiction comparisons should account for differences in federal/state
+        authority, implementation stage, tax treatment, and product scope.
+        """
+    )
 
 DIMENSION_LABELS = {
     "regulatory_clarity":    "Regulatory Clarity",
@@ -1290,6 +1572,13 @@ DIMENSION_DESCS = {
     "licensing_ease":        "How achievable is full authorisation in cost and time?",
     "tax_incentives":        "Are corporate/capital-gains taxes favourable for digital assets?",
     "institutional_banking": "Can crypto/fintech firms readily access corporate banking?",
+}
+DIMENSION_HOVER = {
+    "regulatory_clarity": "Predictability and specificity of applicable rules",
+    "sandbox_speed": "Practical speed of supervised product testing",
+    "licensing_ease": "Authorization burden across cost, time, and complexity",
+    "tax_incentives": "Relative fiscal treatment of digital-asset activity",
+    "institutional_banking": "Access to banking, custody, payment, and settlement rails",
 }
 
 ffi_tab1, ffi_tab2, ffi_tab3 = st.tabs(["🏆 Leaderboard", "🕸️ Radar Comparison", "📈 10-Year Trajectory"])
@@ -1382,6 +1671,12 @@ with ffi_tab1:
                 st.markdown("**Trajectory & Context:**")
                 st.caption(row.improvement_notes)
                 st.markdown(f"**Sources:** *{row.sources}*")
+                row_meta = metadata_for_jurisdiction(row.jurisdiction)
+                if row_meta:
+                    st.caption(
+                        f"**Policy context:** {row_meta['instrument_name']} · "
+                        f"{row_meta['effective_date']} · {row_meta['implementation_status']}"
+                    )
 
 # ── Tab 2: Radar comparison chart ────────────────────────────────────────────
 with ffi_tab2:
@@ -1407,6 +1702,16 @@ with ffi_tab2:
         for idx, jname in enumerate(selected_juris):
             jrow = fintech_df[fintech_df["jurisdiction"] == jname].iloc[0]
             values = [getattr(jrow, d) for d in dims] + [getattr(jrow, dims[0])]
+            hover_dimensions = "<br>".join(
+                f"<b>{DIMENSION_LABELS[dim]}</b>: {getattr(jrow, dim):.1f}/10 — {DIMENSION_HOVER[dim]}"
+                for dim in dims
+            )
+            jmeta = metadata_for_jurisdiction(jname)
+            hover_context = (
+                f"<br><b>Instrument:</b> {escape(jmeta.get('instrument_name', 'Not mapped'))}"
+                f"<br><b>Effective:</b> {escape(jmeta.get('effective_date', 'Not mapped'))}"
+                f"<br><b>Status:</b> {escape(jmeta.get('implementation_status', 'Not mapped'))}"
+            )
             trace_color = RADAR_COLORS[idx % len(RADAR_COLORS)]
             radar_fig.add_trace(go.Scatterpolar(
                 r=values,
@@ -1415,7 +1720,10 @@ with ffi_tab2:
                 name=jname.split("(")[0].strip(),
                 line=dict(color=trace_color, width=3),
                 opacity=1.0,
-                hovertemplate="<b>%{theta}</b>: %{r}/10<extra>" + jname + "</extra>",
+                hovertemplate=(
+                    f"<b>{escape(jname)}</b><br>{hover_dimensions}{hover_context}"
+                    "<extra></extra>"
+                ),
             ))
 
         radar_fig.update_layout(
@@ -1553,7 +1861,7 @@ st.divider()
 # ════════════════════════════════════════════════════════════════════════════════
 # SECTION 1D: FinTech Readiness vs. Friendliness Matrix
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown("<div id='benchmarking-matrix'></div>", unsafe_allow_html=True)
+st.markdown("<div class='dashboard-anchor' id='benchmarking-matrix'></div>", unsafe_allow_html=True)
 st.subheader("🧭 FinTech Readiness vs. Friendliness Matrix")
 st.markdown(
     "*Readiness measures regulatory clarity, sandbox speed, and institutional banking access. "
@@ -1595,11 +1903,16 @@ else:
                 region_rows["jurisdiction"].astype(str),
                 region_rows["composite_2026"].round(2),
                 region_rows["readiness_quadrant"],
+                region_rows["readiness_score"].round(2),
+                region_rows["friendliness_score"].round(2),
             ], axis=-1),
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>Friendliness: %{x:.1f}/10<br>"
                 "Readiness: %{y:.1f}/10<br>Composite: %{customdata[1]}/10<br>"
-                "%{customdata[2]}<extra></extra>"
+                "Quadrant: %{customdata[2]}<br>"
+                "Readiness = clarity + sandbox + banking<br>"
+                "Friendliness = five-dimension mean<br>"
+                "<extra></extra>"
             ),
         ))
     matrix_fig.add_vline(x=7, line_dash="dot", line_color="#64748B")
@@ -1615,6 +1928,11 @@ else:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
     )
     st.plotly_chart(matrix_fig, width="stretch")
+    st.caption(
+        "Matrix definitions: Readiness is the mean of Regulatory Clarity, Sandbox Speed, "
+        "and Institutional Banking. Friendliness is the mean of all five index dimensions. "
+        "The dotted lines at 7/10 are decision thresholds, not regulatory standards."
+    )
 
     quadrant_counts = matrix_df["readiness_quadrant"].value_counts()
     quadrant_order = [
@@ -1681,7 +1999,7 @@ st.divider()
 # ════════════════════════════════════════════════════════════════════════════════
 # SECTION 3: Integrated Analytical Timeline (5-year, zoomable, annotated)
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown("<div id='market-timeline'></div>", unsafe_allow_html=True)
+st.markdown("<div class='dashboard-anchor' id='market-timeline'></div>", unsafe_allow_html=True)
 st.subheader("📈 Integrated Analytical Timeline")
 st.markdown(
     "*5-year view of global crypto market capitalisation with real policy events pinned to their exact dates. "
@@ -1843,6 +2161,31 @@ else:
                 st.write(row["gdp_impact_trajectory"])
                 st.markdown("##### 💰 **Projected Industry Revenue Opportunity**")
                 st.info(row["industry_rev_projection"])
+            card_meta = {
+                column: row.get(column, "")
+                for column in [
+                    "instrument_name", "effective_date", "supervisory_bodies",
+                    "implementation_status", "jurisdiction_scope", "official_source",
+                ]
+            }
+            if any(str(value).strip() for value in card_meta.values()):
+                official_source = card_meta["official_source"].strip()
+                verified_source = (
+                    f'<a href="{escape(official_source)}" target="_blank" '
+                    f'rel="noopener noreferrer">Open official regulatory source</a>'
+                    if official_source
+                    else "Not mapped"
+                )
+                st.markdown(
+                    "\n\n".join([
+                        f"- **Regulatory Instrument:** {card_meta['instrument_name'] or 'Not mapped'}",
+                        f"- **Supervisory Authority:** {card_meta['supervisory_bodies'] or 'Not mapped'}",
+                        f"- **Operational Status:** {card_meta['implementation_status'] or 'Not mapped'}",
+                        f"- **Regulatory Scope:** {card_meta['jurisdiction_scope'] or 'Not mapped'}",
+                        f"- **Verified Source Link:** {verified_source}",
+                    ]),
+                    unsafe_allow_html=True,
+                )
 
 st.divider()
 
@@ -1873,7 +2216,7 @@ st.divider()
 # ════════════════════════════════════════════════════════════════════════════════
 # SECTION 6: Research Submission Form
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown("<div id='researcher-portal'></div>", unsafe_allow_html=True)
+st.markdown("<div class='dashboard-anchor' id='researcher-portal'></div>", unsafe_allow_html=True)
 with st.expander("📥 Submit Strategic Policy Updates (Researcher Portal)", expanded=False):
     st.markdown(
         "*Submissions enter the research queue as **Pending Review**. Only records "
@@ -1973,8 +2316,8 @@ with st.expander("📥 Submit Strategic Policy Updates (Researcher Portal)", exp
                 if policy_result is None:
                     st.stop()
 
-                matching_index = fintech_df[
-                    fintech_df["jurisdiction"].astype(str).str.strip().str.casefold()
+                matching_index = fintech_source_df[
+                    fintech_source_df["jurisdiction"].astype(str).str.strip().str.casefold()
                     == f_jur.strip().casefold()
                 ]
                 if not resolved_index_table:
