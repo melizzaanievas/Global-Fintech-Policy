@@ -905,39 +905,23 @@ def regional_rating_band(score):
         return "MID"
     return "LOW"
 
-# One current, jurisdiction-matched update per featured jurisdiction. These
-# are reviewed on the same daily cycle as the policy-source ratings below.
-JURISDICTION_UPDATES = {
-    "Hong Kong (SFC / HKMA)": ("HKMA — DLT in Hong Kong fixed-income markets", "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2026/06/20260629-4/"),
-    "Singapore (MAS)": ("Crypto Briefing — MAS strengthens bank crypto-exposure oversight", "https://cryptobriefing.com/mas-singapore-banks-report-crypto-exposure/"),
-    "Japan (FSA)": ("CoinDesk — Japan moves crypto under financial rules", "https://www.coindesk.com/policy/2026/07/15/japan-reclassifies-crypto-as-a-financial-asset-paves-way-for-tax-cuts"),
-    "South Korea (FSC)": ("Cointelegraph — South Korea plans consolidated crypto law", "https://cointelegraph.com/news/south-korea-consolidated-crypto-law-tax-repeal"),
-    "Australia (ASIC)": ("eCommerce News Australia — OKX launches virtual Mastercard", "https://ecommercenews.com.au/story/okx-launches-virtual-mastercard-for-australian-users"),
-    "Federal (SEC / CFTC)": ("CoinDesk — Wall Street backs the CLARITY Act", "https://www.coindesk.com/policy/2026/07/28/blackrock-fidelity-other-wall-street-giants-back-the-clarity-act"),
-    "New York (NYDFS)": ("BitRSS — Mastercard secures New York BitLicense", "https://bitrss.com/mastercard-secures-new-york-bitlicense-allows-galaxy-to-offer-institutional-crypto-services-215094"),
-    "Wyoming": ("Crypto Briefing — Wyoming becomes first US state to issue its own stablecoin", "https://cryptobriefing.com/wyoming-first-state-stablecoin-frnt/"),
-    "Texas / Florida": ("JDSupra — Florida creates stablecoin licensing regime", "https://www.jdsupra.com/legalnews/florida-creates-licensing-regime-for-6063197/"),
-    "FCA (Cryptoasset Registration)": ("FCA — Latest crypto rules and UK hub strategy", "https://www.fca.org.uk/news/press-releases/fca-sets-landmark-crypto-rules-cement-uks-place-global-hub"),
-    "HM Treasury": ("Startup Fortune — UK Parliament probes crypto payment blocks", "https://startupfortune.com/uk-parliament-opens-inquiry-into-banks-blocking-crypto-payments-as-1-billion-in-transactions-gets-rejected/"),
-    "Bank of England / PRA": ("SpendNode — Bank of England releases stablecoin rules", "https://www.spendnode.io/blog/bank-of-england-releases-stablecoin-rules-sets-2027-timeline-223766"),
-    "Channel Islands (JFSC / GFSC)": ("Mondaq — Guernsey simplifies digital-finance regulation", "https://www.mondaq.com/guernsey/securitization-structured-finance/1822716/gfsc-takes-steps-to-simplify-regulation-provide-regulatory-clarity-and-support-growth-in-digital-finance"),
-    "MiCA Regulation (EU-wide)": ("Crypto Briefing — EU issues 244 MiCA crypto licences", "https://cryptobriefing.com/eu-mica-crypto-licenses-germany-france/"),
-    "Germany (BaFin)": ("BitRSS — German banks bring crypto to retail customers", "https://bitrss.com/germany-banks-crypto-trading-mica-2026-07-04"),
-    "France (AMF)": ("CoinDesk — Kraken seeks European banking licence", "https://www.coindesk.com/business/2026/07/07/crypto-exchange-kraken-is-trying-to-become-a-bank-in-europe"),
-    "Lithuania / Malta": ("FintechNewsCH — Kraken focuses on Lithuania for European banking licence", "https://fintechnews.ch/blockchain_bitcoin/kraken-banking-license/84583/"),
-    "Brazil": ("CoinDesk — Stablecoins reshape Brazil’s payments market", "https://www.coindesk.com/business/2026/07/18/trump-targets-brazil-s-payments-system-while-dollar-stablecoins-quietly-dominate-country-s-payments"),
-    "Mexico": ("Mexico Business — BingX launches crypto card and investment tools", "https://mexicobusiness.news/finance/news/bingx-launches-crypto-card-ai-investment-tools-mexico"),
-    "Colombia": ("BitRSS — Colombia introduces crypto-service reporting rules", "https://bitrss.com/colombia-introduces-mandatory-reporting-for-cryptocurrency-service-providers-170937"),
-    "Argentina": ("Bitcoin.com News — Argentine banks build peso stablecoins", "https://news.bitcoin.com/argentinas-banking-groups-are-quietly-building-peso-stablecoins-for-the-institutional-market/"),
-    "UAE (VARA / DIFC)": ("WAM — Emirates and Crypto.com payment update", "https://www.wam.ae/en/article/c1g6arq-emirates-cryptocom-give-customers-new-way-pay-for"),
-    "Bahrain": ("Fintech Business Asia — Bahrain grants first stablecoin issuer licence", "https://www.fintechbusinessasia.com/news/30/2840/bahrain-grants-first-stablecoin-issuer-license-to-axg-introducing-a-central-bank-regulated-sharia-compliant-digital-dollar.html"),
-    "Saudi Arabia": ("Decypha — Nium strengthens Saudi cross-border payments", "https://decypha.com/en/news/details/Nium-strengthens-Saudi-Expansion-through-local-cross-border-payments-partnerships/21562957?EDT=&L=EN&TSID="),
-    "Egypt": ("Daily News Egypt — FRA approves fintech sandbox projects", "https://www.dailynewsegypt.com/2026/07/28/fra-grants-preliminary-approval-to-two-ai-driven-insurance-projects-for-regulatory-sandbox/"),
-    "Nigeria": ("BusinessDay — Nigeria’s virtual-assets order reshapes digital finance", "https://businessday.ng/technology/article/tinubus-virtual-assets-order-reshapes-nigerias-digital-finance-roadmap-as-industry-convenes/"),
-    "Kenya": ("Bitcoin.com News — Kenya cuts stablecoin capital requirement", "https://news.bitcoin.com/regulation-and-legal/kenya-cuts-stablecoin-capital-rule-40-to-2-32m-as-global-issuers-weigh-entry/"),
-    "South Africa": ("BusinessDay — SARB develops new cryptocurrency frameworks", "https://www.businessday.co.za/economy/2026-07-12-sarb-developing-new-frameworks-to-regulate-cryptocurrency-use/"),
-    "Rwanda": ("African Business — Rwanda launches nationwide eKash payments", "https://african.business/2026/07/innov-africa-deals/rwanda-unifies-digital-payments-with-national-launch-of-ekash"),
-}
+# Extract dynamic headline and link directly from the filtered jurisdiction row
+update_headline = (
+    selected_row.get("Latest Update Headline") 
+    or selected_row.get("Core Action Item / Shift") 
+    or "Latest regulatory shift pending review"
+)
+
+update_url = (
+    selected_row.get("Latest Update URL") 
+    or selected_row.get("Source URL") 
+    or "#"
+)
+
+# Render dynamic update block
+st.markdown(
+    f"**Latest regional fintech update:** [{update_headline}]({update_url})"
+)
 
 def jurisdiction_update(jurisdiction):
     """Return the reviewed update matched to the named featured jurisdiction."""
