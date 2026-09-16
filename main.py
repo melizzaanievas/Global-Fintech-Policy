@@ -106,8 +106,26 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
 '''
 
 
+DELTA_BADGE_STYLE_PATCH = """
+.success-pill { background:#DCFCE7; color:#16A34A; padding:3px 9px; border-radius:999px; font-size:0.8rem; font-weight:700; display:inline-block; }
+.negative-pill { background:#FEE2E2; color:#B91C1C; padding:3px 9px; border-radius:999px; font-size:0.8rem; font-weight:700; display:inline-block; }
+"""
+
+
+DELTA_BADGE_HELPER_PATCH = '''
+def delta_badge(value, suffix="pts", show_plus=True, decimals=1):
+    value = float(value)
+    sign = "+" if show_plus and value >= 0 else ""
+    formatted = f"{sign}{value:.{decimals}f}"
+    if suffix:
+        formatted = f"{formatted} {suffix}"
+    badge_class = "success-pill" if value >= 0 else "negative-pill"
+    return f"<span class='{badge_class}'>{formatted}</span>"
+'''
+
+
 def patch_app_source(source):
-    """Inject dynamic jurisdiction news lookup into the known-good dashboard source."""
+    """Inject runtime source patches into the known-good dashboard source."""
     if "import feedparser" not in source:
         source = source.replace(
             "from urllib.parse import quote",
@@ -115,9 +133,29 @@ def patch_app_source(source):
             1,
         )
 
+    if ".success-pill" not in source:
+        source = source.replace(
+            '.delta-flat { color:#94A3B8; font-size:0.8rem; font-weight:600; }',
+            '.delta-flat { color:#94A3B8; font-size:0.8rem; font-weight:600; }\n'
+            + DELTA_BADGE_STYLE_PATCH.strip(),
+            1,
+        )
+    if ".success-pill" not in source:
+        raise RuntimeError("Could not locate the CSS block to inject delta badge styles")
+
     marker = "# One current, jurisdiction-matched update per featured jurisdiction."
     if marker in source and "def get_latest_jurisdiction_news" not in source:
         source = source.replace(marker, DYNAMIC_NEWS_PATCH + "\n" + marker, 1)
+
+    helper_marker = "# ── On-chain metric definitions ───────────────────────────────────────────────"
+    if helper_marker in source and "def delta_badge(" not in source:
+        source = source.replace(
+            helper_marker,
+            DELTA_BADGE_HELPER_PATCH + "\n" + helper_marker,
+            1,
+        )
+    if "def delta_badge(" not in source:
+        raise RuntimeError("Could not locate the helper insertion point for delta badges")
 
     legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
@@ -138,6 +176,36 @@ def patch_app_source(source):
         source = source.replace(legacy_render, dynamic_render, 1)
     elif "get_latest_jurisdiction_news(jur[\"name\"], jur)" not in source:
         raise RuntimeError("Could not locate the regional update render block to replace")
+
+    legacy_delta_render = '''                delta = float(row.improvement_delta)
+                delta_color = "#6EE7B7" if delta > 3 else ("#FCD34D" if delta > 1 else "#FCA5A5")
+                st.markdown(
+                    f"<div style='background:#1A2535;border:1px solid #2D4A7A;border-radius:8px;padding:12px;text-align:center'>"
+                    f"<div style='color:#94A3B8;font-size:0.75rem;margin-bottom:4px'>2016 → 2026 Composite</div>"
+                    f"<div style='font-size:1.1rem;font-weight:700;color:#94A3B8'>{float(row.composite_2016):.1f}"
+                    f" → <span style='color:#F1F5F9'>{composite:.1f}</span></div>"
+                    f"<div style='color:{delta_color};font-size:1rem;font-weight:800;margin-top:4px'>"
+                    f"+{delta:.1f} pts over 10 years</div>"
+                    f"<div style='color:#64748B;font-size:0.75rem;margin-top:2px'>{row.improvement_trend}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )'''
+    dynamic_delta_render = '''                delta = float(row.improvement_delta)
+                delta_badge_html = delta_badge(delta)
+                st.markdown(
+                    f"<div style='background:#1A2535;border:1px solid #2D4A7A;border-radius:8px;padding:12px;text-align:center'>"
+                    f"<div style='color:#94A3B8;font-size:0.75rem;margin-bottom:4px'>2016 → 2026 Composite</div>"
+                    f"<div style='font-size:1.1rem;font-weight:700;color:#94A3B8'>{float(row.composite_2016):.1f}"
+                    f" → <span style='color:#F1F5F9'>{composite:.1f}</span></div>"
+                    f"<div style='margin-top:8px'>{delta_badge_html} <span style='color:#64748B;font-size:0.78rem;font-weight:600;margin-left:6px'>over 10 years</span></div>"
+                    f"<div style='color:#64748B;font-size:0.75rem;margin-top:2px'>{row.improvement_trend}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )'''
+    if legacy_delta_render in source:
+        source = source.replace(legacy_delta_render, dynamic_delta_render, 1)
+    elif "delta_badge_html = delta_badge(delta)" not in source:
+        raise RuntimeError("Could not locate the improvement delta render block to replace")
 
     return source
 
