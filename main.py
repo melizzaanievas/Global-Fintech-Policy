@@ -18,6 +18,8 @@ DYNAMIC_NEWS_PATCH = '''
 import feedparser
 import urllib.parse
 
+PALETTE = ["#7C3AED", "#3B82F6", "#2DD4BF", "#FB7185", "#F59E0B"]
+
 REGULATORY_RSS_FEEDS = {
     "Hong Kong": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
     "Hong Kong (SFC / HKMA)": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
@@ -106,8 +108,16 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
 '''
 
 
+def _replace_or_verify(source, old, new, marker):
+    if old in source:
+        return source.replace(old, new, 1)
+    if new in source:
+        return source
+    raise RuntimeError(f"Could not locate the {marker} block to replace")
+
+
 def patch_app_source(source):
-    """Inject dynamic jurisdiction news lookup into the known-good dashboard source."""
+    """Patch the known-good dashboard source with dynamic news and chart theming."""
     if "import feedparser" not in source:
         source = source.replace(
             "from urllib.parse import quote",
@@ -134,10 +144,174 @@ def patch_app_source(source):
                 f"- **Latest regional fintech update — reviewed {regional_review_date}:** "
                 f"[{headline}]({link})"
             )'''
-    if legacy_render in source:
-        source = source.replace(legacy_render, dynamic_render, 1)
-    elif "get_latest_jurisdiction_news(jur[\"name\"], jur)" not in source:
-        raise RuntimeError("Could not locate the regional update render block to replace")
+    source = _replace_or_verify(
+        source,
+        legacy_render,
+        dynamic_render,
+        "regional update render",
+    )
+
+    legacy_jurisdiction_update = '''def jurisdiction_update(jurisdiction):
+    """Return the reviewed update matched to the named featured jurisdiction."""
+    return JURISDICTION_UPDATES.get(
+        jurisdiction,
+        (f"{jurisdiction} — official fintech update", ""),
+    )'''
+    dynamic_jurisdiction_update = '''def jurisdiction_update(jurisdiction, df_row=None):
+    """Return the best available update for the named jurisdiction."""
+    return get_latest_jurisdiction_news(jurisdiction, df_row or {})'''
+    source = _replace_or_verify(
+        source,
+        legacy_jurisdiction_update,
+        dynamic_jurisdiction_update,
+        "jurisdiction update helper",
+    )
+
+    source = _replace_or_verify(
+        source,
+        '        trace_color = RADAR_COLORS[idx % len(RADAR_COLORS)]',
+        '        trace_color = PALETTE[idx % len(PALETTE)]',
+        "radar palette",
+    )
+    source = _replace_or_verify(
+        source,
+        '                line=dict(color=trace_color, width=3),',
+        '                line=dict(color=trace_color, width=2.5),',
+        "radar trace width",
+    )
+
+    radar_layout_old = '''        radar_fig.update_layout(
+            polar=dict(
+                bgcolor="rgba(15,23,42,0.96)",
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 10],
+                    tickfont=dict(size=10, color="#E2E8F0"),
+                    tickvals=[2, 4, 6, 8, 10],
+                    gridcolor="#52627A",
+                    linecolor="#718096",
+                ),
+                angularaxis=dict(
+                    showticklabels=True,
+                    tickmode="array",
+                    tickvals=dim_labels,
+                    ticktext=dim_labels,
+                    tickfont=dict(color="#1E293B", size=13, weight="bold"),
+                    gridcolor="#52627A",
+                    linecolor="#718096",
+                    layer="above traces",
+                ),
+            ),
+            template="plotly_dark",
+            height=520,
+            margin=dict(l=110, r=110, t=55, b=70),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                font=dict(size=12, color="#F8FAFC"),
+                bgcolor="rgba(15,23,42,0.96)",
+                bordercolor="#718096",
+                borderwidth=1,
+            ),
+        )'''
+    radar_layout_new = '''        radar_fig.update_layout(
+            template="plotly_white",
+            height=520,
+            margin=dict(l=110, r=110, t=55, b=70),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", color="#0F172A"),
+            polar=dict(
+                bgcolor="rgba(0,0,0,0)",
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 10],
+                    tickfont=dict(size=10, color="#0F172A"),
+                    tickvals=[2, 4, 6, 8, 10],
+                    gridcolor="#E2E8F0",
+                    linecolor="#E2E8F0",
+                    showline=True,
+                ),
+                angularaxis=dict(
+                    showticklabels=True,
+                    tickmode="array",
+                    tickvals=dim_labels,
+                    ticktext=dim_labels,
+                    tickfont=dict(color="#0F172A", size=13, weight="bold"),
+                    gridcolor="#E2E8F0",
+                    linecolor="#E2E8F0",
+                    layer="above traces",
+                ),
+            ),
+            legend=dict(
+                font=dict(size=12, color="#0F172A"),
+                bgcolor="rgba(0,0,0,0)",
+                bordercolor="#E2E8F0",
+                borderwidth=1,
+            ),
+        )'''
+    source = _replace_or_verify(
+        source,
+        radar_layout_old,
+        radar_layout_new,
+        "radar layout",
+    )
+
+    source = _replace_or_verify(
+        source,
+        '                font=dict(size=11, color="#F1F5F9"),',
+        '                font=dict(size=11, color="#0F172A"),',
+        "trajectory annotation font",
+    )
+
+    traj_layout_old = '''        traj_fig.update_layout(
+            barmode="stack",
+            template="plotly_dark",
+            height=420,
+            xaxis=dict(title="Composite Score (1–10)", range=[0, 11.5], gridcolor="#1E3A5F"),
+            yaxis=dict(title="", tickfont=dict(size=11)),
+            margin=dict(l=20, r=60, t=30, b=40),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )'''
+    traj_layout_new = '''        traj_fig.update_layout(
+            barmode="stack",
+            template="plotly_white",
+            height=420,
+            margin=dict(l=20, r=60, t=30, b=40),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", color="#0F172A"),
+            xaxis=dict(
+                title="Composite Score (1–10)",
+                range=[0, 11.5],
+                gridcolor="#E2E8F0",
+                zerolinecolor="#E2E8F0",
+            ),
+            yaxis=dict(
+                title="",
+                tickfont=dict(size=11, color="#0F172A"),
+                gridcolor="#E2E8F0",
+                zerolinecolor="#E2E8F0",
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(color="#0F172A"),
+            ),
+        )
+        for idx, trace in enumerate(traj_fig.data):
+            trace.marker.color = PALETTE[idx % len(PALETTE)]'''
+    source = _replace_or_verify(
+        source,
+        traj_layout_old,
+        traj_layout_new,
+        "trajectory layout",
+    )
 
     return source
 
