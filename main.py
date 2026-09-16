@@ -103,11 +103,25 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
         pass
 
     return _news_fallback(row)
+
+
+def jurisdiction_update(jurisdiction, df_row=None):
+    """Backward-compatible wrapper for jurisdiction update retrieval."""
+    return get_latest_jurisdiction_news(jurisdiction, df_row or {})
 '''
 
 
 def patch_app_source(source):
-    """Inject dynamic jurisdiction news lookup into the known-good dashboard source."""
+    """Patch the known-good dashboard source with dynamic news and presentation updates."""
+    def replace_once(old, new, description, already_present=None):
+        nonlocal source
+        if old in source:
+            source = source.replace(old, new, 1)
+            return
+        if already_present and already_present in source:
+            return
+        raise RuntimeError(f"Could not locate the {description} block to replace")
+
     if "import feedparser" not in source:
         source = source.replace(
             "from urllib.parse import quote",
@@ -134,10 +148,245 @@ def patch_app_source(source):
                 f"- **Latest regional fintech update — reviewed {regional_review_date}:** "
                 f"[{headline}]({link})"
             )'''
-    if legacy_render in source:
-        source = source.replace(legacy_render, dynamic_render, 1)
-    elif "get_latest_jurisdiction_news(jur[\"name\"], jur)" not in source:
-        raise RuntimeError("Could not locate the regional update render block to replace")
+    replace_once(
+        legacy_render,
+        dynamic_render,
+        "regional update render",
+        'headline, link = get_latest_jurisdiction_news(jur["name"], jur)',
+    )
+
+    legacy_jurisdiction_update = '''def jurisdiction_update(jurisdiction):
+    """Return the reviewed update matched to the named featured jurisdiction."""
+    return JURISDICTION_UPDATES.get(
+        jurisdiction,
+        (f"{jurisdiction} — official fintech update", ""),
+    )
+'''
+    compatibility_jurisdiction_update = '''def jurisdiction_update(jurisdiction, df_row=None):
+    """Backward-compatible wrapper for jurisdiction update retrieval."""
+    return get_latest_jurisdiction_news(jurisdiction, df_row or {})
+'''
+    replace_once(
+        legacy_jurisdiction_update,
+        compatibility_jurisdiction_update,
+        "jurisdiction update helper",
+        "def jurisdiction_update(jurisdiction, df_row=None):",
+    )
+
+    legacy_success_pill_css = '''.status-red    { background:#7F1D1D; color:#FCA5A5; padding:3px 9px; border-radius:10px; font-size:0.75rem; font-weight:700; }
+.policy-alert   { border-left:4px solid #F59E0B; background-color:#2D2A1A; color:#F5E6C8; padding:12px; border-radius:4px; }'''
+    success_pill_css = '''.status-red    { background:#7F1D1D; color:#FCA5A5; padding:3px 9px; border-radius:10px; font-size:0.75rem; font-weight:700; }
+.success-pill  { background:#DCFCE7; color:#16A34A; padding:4px 10px; border-radius:999px; font-size:0.82rem; font-weight:800; display:inline-block; }
+.policy-alert   { border-left:4px solid #F59E0B; background-color:#2D2A1A; color:#F5E6C8; padding:12px; border-radius:4px; }'''
+    replace_once(
+        legacy_success_pill_css,
+        success_pill_css,
+        "success pill CSS",
+        ".success-pill  { background:#DCFCE7; color:#16A34A;",
+    )
+
+    legacy_delta_render = '''                delta = float(row.improvement_delta)
+                delta_color = "#6EE7B7" if delta > 3 else ("#FCD34D" if delta > 1 else "#FCA5A5")
+                st.markdown(
+                    f"<div style='background:#1A2535;border:1px solid #2D4A7A;border-radius:8px;padding:12px;text-align:center'>"
+                    f"<div style='color:#94A3B8;font-size:0.75rem;margin-bottom:4px'>2016 → 2026 Composite</div>"
+                    f"<div style='font-size:1.1rem;font-weight:700;color:#94A3B8'>{float(row.composite_2016):.1f}"
+                    f" → <span style='color:#F1F5F9'>{composite:.1f}</span></div>"
+                    f"<div style='color:{delta_color};font-size:1rem;font-weight:800;margin-top:4px'>"
+                    f"+{delta:.1f} pts over 10 years</div>"
+                    f"<div style='color:#64748B;font-size:0.75rem;margin-top:2px'>{row.improvement_trend}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )'''
+    delta_badge_render = '''                delta = float(row.improvement_delta)
+                delta_badge = (
+                    f'<span class="success-pill">+{delta:.1f} pts</span>'
+                    if delta >= 0
+                    else (
+                        '<span class="success-pill" '
+                        'style="background:#FEE2E2;color:#B91C1C;">'
+                        f'{delta:.1f} pts</span>'
+                    )
+                )
+                st.markdown(
+                    f"<div style='background:#1A2535;border:1px solid #2D4A7A;border-radius:8px;padding:12px;text-align:center'>"
+                    f"<div style='color:#94A3B8;font-size:0.75rem;margin-bottom:4px'>2016 → 2026 Composite</div>"
+                    f"<div style='font-size:1.1rem;font-weight:700;color:#94A3B8'>{float(row.composite_2016):.1f}"
+                    f" → <span style='color:#F1F5F9'>{composite:.1f}</span></div>"
+                    f"<div style='margin-top:8px'>{delta_badge}</div>"
+                    f"<div style='color:#64748B;font-size:0.75rem;margin-top:2px'>{row.improvement_trend}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )'''
+    replace_once(
+        legacy_delta_render,
+        delta_badge_render,
+        "leaderboard delta badge",
+        'delta_badge = (\n                    f\'<span class="success-pill">+{delta:.1f} pts</span>\'',
+    )
+
+    shared_tabs = '''ffi_tab1, ffi_tab2, ffi_tab3 = st.tabs(["🏆 Leaderboard", "🕸️ Radar Comparison", "📈 10-Year Trajectory"])'''
+    shared_palette_tabs = '''PALETTE = ["#7C3AED", "#3B82F6", "#2DD4BF", "#FB7185", "#F59E0B"]
+
+ffi_tab1, ffi_tab2, ffi_tab3 = st.tabs(["🏆 Leaderboard", "🕸️ Radar Comparison", "📈 10-Year Trajectory"])'''
+    replace_once(
+        shared_tabs,
+        shared_palette_tabs,
+        "shared comparison chart palette",
+        'PALETTE = ["#7C3AED", "#3B82F6", "#2DD4BF", "#FB7185", "#F59E0B"]',
+    )
+
+    legacy_radar_colors = '''        # High-contrast, colorblind-aware palette; fills stay subtle to avoid overlap.
+        RADAR_COLORS = ["#00B8D9", "#66CC66", "#F2B134", "#FF6B6B", "#B18CFF"]
+'''
+    palette_colors = ""
+    replace_once(
+        legacy_radar_colors,
+        palette_colors,
+        "radar palette",
+        'PALETTE = ["#7C3AED", "#3B82F6", "#2DD4BF", "#FB7185", "#F59E0B"]',
+    )
+
+    replace_once(
+        '            trace_color = RADAR_COLORS[idx % len(RADAR_COLORS)]',
+        '            trace_color = PALETTE[idx % len(PALETTE)]',
+        "radar trace color assignment",
+        'trace_color = PALETTE[idx % len(PALETTE)]',
+    )
+    replace_once(
+        '                line=dict(color=trace_color, width=3),',
+        '                line=dict(color=trace_color, width=2.5),',
+        "radar trace line width",
+        'line=dict(color=trace_color, width=2.5)',
+    )
+
+    legacy_radar_layout = '''        radar_fig.update_layout(
+            polar=dict(
+                bgcolor="rgba(15,23,42,0.96)",
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 10],
+                    tickfont=dict(size=10, color="#E2E8F0"),
+                    tickvals=[2, 4, 6, 8, 10],
+                    gridcolor="#52627A",
+                    linecolor="#718096",
+                ),
+                angularaxis=dict(
+                    showticklabels=True,
+                    tickmode="array",
+                    tickvals=dim_labels,
+                    ticktext=dim_labels,
+                    tickfont=dict(color="#1E293B", size=13, weight="bold"),
+                    gridcolor="#52627A",
+                    linecolor="#718096",
+                    layer="above traces",
+                ),
+            ),
+            template="plotly_dark",
+            height=520,
+            margin=dict(l=110, r=110, t=55, b=70),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                font=dict(size=12, color="#F8FAFC"),
+                bgcolor="rgba(15,23,42,0.96)",
+                bordercolor="#718096",
+                borderwidth=1,
+            ),
+        )'''
+    themed_radar_layout = '''        radar_fig.update_layout(
+            template="plotly_white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", color="#0F172A"),
+            polar=dict(
+                bgcolor="rgba(0,0,0,0)",
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 10],
+                    tickfont=dict(size=10, color="#0F172A"),
+                    tickvals=[2, 4, 6, 8, 10],
+                    gridcolor="#E2E8F0",
+                    linecolor="#E2E8F0",
+                    showline=True,
+                ),
+                angularaxis=dict(
+                    showticklabels=True,
+                    tickmode="array",
+                    tickvals=dim_labels,
+                    ticktext=dim_labels,
+                    tickfont=dict(color="#0F172A", size=13),
+                    gridcolor="#E2E8F0",
+                    linecolor="#E2E8F0",
+                    layer="above traces",
+                ),
+            ),
+            height=520,
+            margin=dict(l=110, r=110, t=55, b=70),
+            legend=dict(font=dict(size=11, color="#0F172A")),
+        )'''
+    replace_once(
+        legacy_radar_layout,
+        themed_radar_layout,
+        "radar chart layout",
+        'template="plotly_white"',
+    )
+
+    legacy_traj_layout = '''        traj_fig.update_layout(
+            barmode="stack",
+            template="plotly_dark",
+            height=420,
+            xaxis=dict(title="Composite Score (1–10)", range=[0, 11.5], gridcolor="#1E3A5F"),
+            yaxis=dict(title="", tickfont=dict(size=11)),
+            margin=dict(l=20, r=60, t=30, b=40),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )'''
+    themed_traj_layout = '''        traj_fig.update_layout(
+            barmode="stack",
+            template="plotly_white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", color="#0F172A"),
+            height=420,
+            xaxis=dict(
+                title="Composite Score (1–10)",
+                range=[0, 11.5],
+                gridcolor="#E2E8F0",
+                zerolinecolor="#E2E8F0",
+            ),
+            yaxis=dict(
+                title="",
+                tickfont=dict(size=11, color="#0F172A"),
+                gridcolor="#E2E8F0",
+                zerolinecolor="#E2E8F0",
+            ),
+            margin=dict(l=20, r=60, t=30, b=40),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=11, color="#0F172A"),
+            ),
+        )
+
+        for idx, trace in enumerate(traj_fig.data):
+            trace.marker.color = PALETTE[idx % len(PALETTE)]'''
+    replace_once(
+        legacy_traj_layout,
+        themed_traj_layout,
+        "trajectory chart layout",
+        'trace.marker.color = PALETTE[idx % len(PALETTE)]',
+    )
+    replace_once(
+        '                font=dict(size=11, color="#F1F5F9"),',
+        '                font=dict(size=11, color="#0F172A"),',
+        "trajectory annotation font color",
+        'font=dict(size=11, color="#0F172A")',
+    )
 
     return source
 
