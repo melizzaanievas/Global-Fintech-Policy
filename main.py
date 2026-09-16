@@ -19,17 +19,25 @@ import feedparser
 import urllib.parse
 
 REGULATORY_RSS_FEEDS = {
+    "Hong Kong": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
     "Hong Kong (SFC / HKMA)": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
     "Hong Kong (SFC)": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
+    "Singapore": "https://www.mas.gov.sg/rss/feeds/press-releases.xml",
     "Singapore (MAS)": "https://www.mas.gov.sg/rss/feeds/press-releases.xml",
-    "Japan (FSA)": "https://www.fsa.go.jp/en/news/rss.xml",
-    "South Korea (FSC)": "https://www.fsc.go.kr/eng/rss.xml",
-    "FCA (Cryptoasset Registration)": "https://www.fca.org.uk/news/rss.xml",
     "United Kingdom": "https://www.fca.org.uk/news/rss.xml",
-    "Federal (SEC / CFTC)": "https://www.sec.gov/rss/pressreleases.xml",
+    "UK FCA": "https://www.fca.org.uk/news/rss.xml",
+    "FCA": "https://www.fca.org.uk/news/rss.xml",
     "United States": "https://www.sec.gov/rss/pressreleases.xml",
+    "US SEC": "https://www.sec.gov/rss/pressreleases.xml",
+    "SEC": "https://www.sec.gov/rss/pressreleases.xml",
+    "European Union": "https://www.esma.europa.eu/rss.xml",
+    "EU MiCA": "https://www.esma.europa.eu/rss.xml",
     "MiCA Regulation (EU-wide)": "https://www.esma.europa.eu/rss.xml",
-    "European Union (MiCA)": "https://www.esma.europa.eu/rss.xml",
+    "Japan": "https://www.fsa.go.jp/en/news/rss.xml",
+    "Japan (FSA)": "https://www.fsa.go.jp/en/news/rss.xml",
+    "South Korea": "https://www.fsc.go.kr/eng/rss.xml",
+    "South Korea (FSC)": "https://www.fsc.go.kr/eng/rss.xml",
+    "UAE": "https://www.vara.ae/en/rss.xml",
     "UAE (VARA / DIFC)": "https://www.vara.ae/en/rss.xml",
     "Bahrain": "https://www.cbb.gov.bh/rss.xml",
     "Nigeria": "https://sec.gov.ng/feed/",
@@ -39,67 +47,79 @@ REGULATORY_RSS_FEEDS = {
     "Brazil": "https://www.bcb.gov.br/api/feeds/noticias",
     "Mexico": "https://www.banxico.org.mx/rss.xml",
     "Colombia": "https://www.superfinanciera.gov.co/feed",
+    "Australia": "https://asic.gov.au/about-asic/news-centre/rss/",
+    "ASIC": "https://asic.gov.au/about-asic/news-centre/rss/",
 }
 
-@st.cache_data(ttl=3600)
-def get_latest_jurisdiction_news(jurisdiction_name, df_row):
-    """Return a cached RSS update with Google News and row-data fallbacks."""
-    jurisdiction = str(jurisdiction_name or "").strip()
-    row = df_row if isinstance(df_row, dict) else {}
-    search_url = (
-        "https://news.google.com/rss/search?q="
-        f"{urllib.parse.quote(jurisdiction + ' fintech regulation policy')}"
-        "&hl=en-US&gl=US&ceid=US:en"
-    )
-    feed_urls = []
-    direct_url = REGULATORY_RSS_FEEDS.get(jurisdiction)
-    if direct_url:
-        feed_urls.append(direct_url)
-    feed_urls.append(search_url)
 
-    for rss_url in feed_urls:
-        try:
-            parsed = feedparser.parse(rss_url)
-            for entry in getattr(parsed, "entries", []) or []:
-                headline = str(entry.get("title") or "").strip()
-                link = str(entry.get("link") or "").strip()
-                if headline and link:
-                    return headline, link
-        except Exception:
-            continue
-
-    fallback_headline = (
+def _news_fallback(row):
+    """Return the row-provided update safely when external feeds are unavailable."""
+    headline = (
         row.get("Latest Update Headline")
-        or row.get("latest_update_headline")
         or row.get("Core Action Item / Shift")
-        or row.get("core_action_item_shift")
         or row.get("regulatory_shift")
+        or row.get("framework")
         or "Latest policy shift pending review"
     )
-    fallback_url = (
+    link = (
         row.get("Latest Update URL")
-        or row.get("latest_update_url")
         or row.get("Source URL")
         or row.get("source_url")
         or "#"
     )
-    return str(fallback_headline), str(fallback_url)
+    return str(headline), str(link)
+
+
+@st.cache_data(ttl=3600)
+def get_latest_jurisdiction_news(jurisdiction_name, df_row):
+    """Return the latest jurisdiction-specific regulatory update or safe row fallback."""
+    jurisdiction = str(jurisdiction_name or "").strip()
+    row = df_row if isinstance(df_row, dict) else {}
+
+    rss_url = REGULATORY_RSS_FEEDS.get(jurisdiction)
+    if not rss_url:
+        search_query = f"{jurisdiction} fintech regulation policy"
+        rss_url = (
+            "https://news.google.com/rss/search?q="
+            f"{urllib.parse.quote(search_query)}&hl=en-US&gl=US&ceid=US:en"
+        )
+
+    try:
+        response = requests.get(
+            rss_url,
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        response.raise_for_status()
+        parsed = feedparser.parse(response.content)
+        entries = getattr(parsed, "entries", []) or []
+        if entries:
+            first = entries[0]
+            title = str(first.get("title") or "").strip()
+            link = str(first.get("link") or "").strip()
+            if title and link:
+                return title, link
+    except Exception:
+        pass
+
+    return _news_fallback(row)
 '''
 
 
 def patch_app_source(source):
-    """Inject the dynamic news helper and replace the legacy render call."""
-    source = source.replace(
-        "from urllib.parse import quote",
-        "from urllib.parse import quote\nimport feedparser\nimport urllib.parse",
-        1,
-    )
+    """Inject dynamic jurisdiction news lookup into the known-good dashboard source."""
+    if "import feedparser" not in source:
+        source = source.replace(
+            "from urllib.parse import quote",
+            "from urllib.parse import quote\nimport feedparser\nimport urllib.parse",
+            1,
+        )
 
     marker = "# One current, jurisdiction-matched update per featured jurisdiction."
     if marker in source and "def get_latest_jurisdiction_news" not in source:
         source = source.replace(marker, DYNAMIC_NEWS_PATCH + "\n" + marker, 1)
 
-    legacy = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
+    legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
                 f"[{regional_news_title}]({regional_news_url})"
                 if regional_news_url
@@ -109,17 +129,21 @@ def patch_app_source(source):
                 f"- **Latest regional fintech update — reviewed {regional_review_date}:** "
                 f"{update_link}"
             )'''
-    replacement = '''            headline, link = get_latest_jurisdiction_news(jur["name"], jur)
+    dynamic_render = '''            headline, link = get_latest_jurisdiction_news(jur["name"], jur)
             st.markdown(
                 f"- **Latest regional fintech update — reviewed {regional_review_date}:** "
                 f"[{headline}]({link})"
             )'''
-    source = source.replace(legacy, replacement, 1)
+    if legacy_render in source:
+        source = source.replace(legacy_render, dynamic_render, 1)
+    elif "get_latest_jurisdiction_news(jur[\"name\"], jur)" not in source:
+        raise RuntimeError("Could not locate the regional update render block to replace")
+
     return source
 
 
 def load_known_good_main():
-    """Load and patch the last known-good app source from repository history."""
+    """Load the known-good dashboard source and apply the dynamic RSS refactor."""
     urls = [GOOD_MAIN_URL, FALLBACK_MAIN_URL]
     last_error = None
 
@@ -142,7 +166,7 @@ def load_known_good_main():
             last_error = exc
 
     raise RuntimeError(
-        "Failed to load the last known-good main.py from git history. "
+        "Failed to load the known-good main.py from git history. "
         f"Tried: {urls}. Last error: {last_error}"
     )
 
