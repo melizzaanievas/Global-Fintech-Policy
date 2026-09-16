@@ -2,7 +2,6 @@ import os
 import traceback
 import urllib.parse
 
-import feedparser
 import requests
 
 GOOD_MAIN_URL = (
@@ -15,8 +14,12 @@ FALLBACK_MAIN_URL = (
 )
 
 DYNAMIC_NEWS_PATCH = '''
-import feedparser
 import urllib.parse
+
+try:
+    import feedparser
+except ImportError:
+    feedparser = None
 
 REGULATORY_RSS_FEEDS = {
     "Hong Kong": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
@@ -84,6 +87,9 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
             f"{urllib.parse.quote(search_query)}&hl=en-US&gl=US&ceid=US:en"
         )
 
+    if feedparser is None:
+        return _news_fallback(row)
+
     try:
         response = requests.get(
             rss_url,
@@ -111,7 +117,7 @@ def patch_app_source(source):
     if "import feedparser" not in source:
         source = source.replace(
             "from urllib.parse import quote",
-            "from urllib.parse import quote\nimport feedparser\nimport urllib.parse",
+            "from urllib.parse import quote\nimport urllib.parse\n\ntry:\n    import feedparser\nexcept ImportError:\n    feedparser = None",
             1,
         )
 
