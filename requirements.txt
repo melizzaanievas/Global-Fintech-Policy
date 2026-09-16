@@ -4,3 +4,4 @@ plotly==6.9.0
 requests==2.34.2
 streamlit==1.60.0
 feedparser==6.0.10
+legacy-cgi==2.6.4; python_version >= "3.13"

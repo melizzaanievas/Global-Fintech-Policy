@@ -1,4 +1,7 @@
+import importlib.util
 import os
+from pathlib import Path
+import sys
 import traceback
 import urllib.parse
 
@@ -148,8 +151,30 @@ def patch_app_source(source):
     return source
 
 
+def ensure_cgi_compat():
+    """Preload a local `cgi` compatibility module when stdlib `cgi` is unavailable."""
+    try:
+        import cgi  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    shim_path = Path(__file__).with_name("cgi.py")
+    if not shim_path.exists():
+        return
+
+    spec = importlib.util.spec_from_file_location("cgi", shim_path)
+    if spec is None or spec.loader is None:
+        return
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["cgi"] = module
+    spec.loader.exec_module(module)
+
+
 def load_known_good_main():
     """Load the known-good dashboard source and apply the dynamic RSS refactor."""
+    ensure_cgi_compat()
     urls = [GOOD_MAIN_URL, FALLBACK_MAIN_URL]
     last_error = None
 
