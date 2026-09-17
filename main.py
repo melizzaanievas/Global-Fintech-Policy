@@ -152,6 +152,11 @@ UPDATED_SIDEBAR_EXECUTIVE_BLOCK = """st.sidebar.markdown(\"\"\"
 
 def patch_app_source(source):
     """Inject dynamic jurisdiction news lookup into the known-good dashboard source."""
+    def replace_if_present(current_source, old, new):
+        if old in current_source:
+            return current_source.replace(old, new, 1)
+        return current_source
+
     if "import feedparser" not in source:
         source = source.replace(
             "from urllib.parse import quote",
@@ -175,10 +180,7 @@ def patch_app_source(source):
 .executive-cta.substack { background:#F8FAFC; color:#0B1B35 !important; border-color:#CBD5E1; }
 .executive-cta:hover { background:#F3D675; color:#07142A !important; }
 .executive-cta.substack:hover { background:#FFFFFF; }"""
-    if legacy_executive_css in source:
-        source = source.replace(legacy_executive_css, UPDATED_EXECUTIVE_CSS, 1)
-    elif UPDATED_EXECUTIVE_CSS not in source:
-        raise RuntimeError("Could not locate the executive header styles to replace")
+    source = replace_if_present(source, legacy_executive_css, UPDATED_EXECUTIVE_CSS)
 
     legacy_mobile_css = """@media (max-width: 600px) {
     .executive-banner { padding:17px 17px 19px 17px; }
@@ -188,10 +190,7 @@ def patch_app_source(source):
     .executive-links { flex-direction:column; gap:10px; }
     .executive-cta { width:100%; text-align:center; }
 }"""
-    if legacy_mobile_css in source:
-        source = source.replace(legacy_mobile_css, UPDATED_EXECUTIVE_MOBILE_CSS, 1)
-    elif UPDATED_EXECUTIVE_MOBILE_CSS not in source:
-        raise RuntimeError("Could not locate the executive mobile styles to replace")
+    source = replace_if_present(source, legacy_mobile_css, UPDATED_EXECUTIVE_MOBILE_CSS)
 
     legacy_header = '''# ── Header ────────────────────────────────────────────────────────────────────
 _, col_title = st.columns([1, 6])
@@ -213,10 +212,7 @@ with col_title:
 </div>
 """, unsafe_allow_html=True)
 '''
-    if legacy_header in source:
-        source = source.replace(legacy_header, UPDATED_MAIN_HEADER, 1)
-    elif UPDATED_MAIN_HEADER not in source:
-        raise RuntimeError("Could not locate the main header block to replace")
+    source = replace_if_present(source, legacy_header, UPDATED_MAIN_HEADER)
 
     legacy_sidebar_header = '''# ── Sidebar ───────────────────────────────────────────────────────────────────
 # The hub list is database-driven: it is rebuilt from the normalized dataframe
@@ -227,10 +223,7 @@ st.sidebar.header("🎛️ Dashboard Controls")'''
 # on every Streamlit rerun, including after an approved Airtable submission.
 {UPDATED_SIDEBAR_EXECUTIVE_BLOCK}
 st.sidebar.header("🎛️ Dashboard Controls")'''
-    if legacy_sidebar_header in source:
-        source = source.replace(legacy_sidebar_header, updated_sidebar_header, 1)
-    elif updated_sidebar_header not in source:
-        raise RuntimeError("Could not locate the sidebar header insertion point")
+    source = replace_if_present(source, legacy_sidebar_header, updated_sidebar_header)
 
     legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
