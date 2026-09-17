@@ -214,17 +214,12 @@ with col_title:
 '''
     source = replace_if_present(source, legacy_header, UPDATED_MAIN_HEADER)
 
-    legacy_sidebar_header = '''# ── Sidebar ───────────────────────────────────────────────────────────────────
-# The hub list is database-driven: it is rebuilt from the normalized dataframe
-# on every Streamlit rerun, including after an approved Airtable submission.
-st.sidebar.header("🎛️ Dashboard Controls")'''
-    updated_sidebar_header = f'''# ── Sidebar ───────────────────────────────────────────────────────────────────
-# The hub list is database-driven: it is rebuilt from the normalized dataframe
-# on every Streamlit rerun, including after an approved Airtable submission.
-{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}
-st.sidebar.header("🎛️ Dashboard Controls")'''
+    sidebar_header_marker = 'st.sidebar.header("🎛️ Dashboard Controls")'
+    updated_sidebar_header = (
+        f"{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}\n{sidebar_header_marker}"
+    )
     if UPDATED_SIDEBAR_EXECUTIVE_BLOCK not in source:
-        source = replace_if_present(source, legacy_sidebar_header, updated_sidebar_header)
+        source = replace_if_present(source, sidebar_header_marker, updated_sidebar_header)
 
     legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
