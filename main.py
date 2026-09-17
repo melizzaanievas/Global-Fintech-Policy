@@ -1,6 +1,7 @@
 import importlib.util
 import os
 from pathlib import Path
+import re
 import sys
 import traceback
 import urllib.parse
@@ -158,6 +159,16 @@ def patch_app_source(source):
             return current_source.replace(old, new, 1)
         return current_source
 
+    def insert_before_pattern(current_source, pattern, prefix):
+        updated_source, replacements = re.subn(
+            pattern,
+            lambda match: f"{prefix}\n{match.group(0)}",
+            current_source,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        return updated_source, replacements
+
     if "import feedparser" not in source:
         source = source.replace(
             "from urllib.parse import quote",
@@ -215,12 +226,14 @@ with col_title:
 '''
     source = replace_if_present(source, legacy_header, UPDATED_MAIN_HEADER)
 
-    sidebar_header_marker = 'st.sidebar.header("🎛️ Dashboard Controls")'
-    updated_sidebar_header = (
-        f"{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}\n{sidebar_header_marker}"
-    )
     if SIDEBAR_EXECUTIVE_GUARD not in source:
-        source = replace_if_present(source, sidebar_header_marker, updated_sidebar_header)
+        source, sidebar_insertions = insert_before_pattern(
+            source,
+            r'^with st\.sidebar\.expander\("🔎 Filter Intelligence", expanded=True\):$',
+            f'{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}\nst.sidebar.header("🎛️ Dashboard Controls")',
+        )
+        if sidebar_insertions == 0:
+            raise RuntimeError("Could not locate the sidebar filter block to prepend the executive header")
 
     legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
