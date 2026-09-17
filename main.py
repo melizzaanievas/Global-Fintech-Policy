@@ -25,6 +25,11 @@ try:
 except ImportError:
     feedparser = None
 
+try:
+    from config import JURISDICTION_ALIASES
+except ImportError:
+    JURISDICTION_ALIASES = {}
+
 REGULATORY_RSS_FEEDS = {
     "Hong Kong": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
     "Hong Kong (SFC / HKMA)": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/rss/",
@@ -85,7 +90,8 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
 
     rss_url = REGULATORY_RSS_FEEDS.get(jurisdiction)
     if not rss_url:
-        search_query = f"{jurisdiction} fintech regulation policy"
+        search_terms = JURISDICTION_ALIASES.get(jurisdiction, jurisdiction)
+        search_query = f"{search_terms} crypto regulation policy"
         rss_url = (
             "https://news.google.com/rss/search?q="
             f"{urllib.parse.quote(search_query)}&hl=en-US&gl=US&ceid=US:en"
