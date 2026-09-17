@@ -229,7 +229,7 @@ with col_title:
     if SIDEBAR_EXECUTIVE_GUARD not in source:
         source, sidebar_insertions = insert_before_pattern(
             source,
-            r'^with st\.sidebar\.expander\("🔎 Filter Intelligence", expanded=True\):$',
+            r"""^\s*with\s+st\.sidebar\.expander\(\s*['"]🔎 Filter Intelligence['"]\s*,\s*expanded\s*=\s*True\s*\)\s*:$""",
             f'{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}\nst.sidebar.header("🎛️ Dashboard Controls")',
         )
         if sidebar_insertions == 0:
