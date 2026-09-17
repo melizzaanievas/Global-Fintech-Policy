@@ -114,6 +114,41 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
     return _news_fallback(row)
 '''
 
+UPDATED_EXECUTIVE_CSS = """.executive-banner { width:100%; box-sizing:border-box; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:12px; padding:16px; margin:0 0 16px 0; box-shadow:0 10px 24px rgba(15,23,42,0.06); }
+.executive-kicker { color:#6366F1; font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; font-weight:800; margin-bottom:8px; }
+.executive-credentials { color:#475569; font-size:0.88rem; line-height:1.45; font-weight:500; }
+.executive-credentials .name { display:block; color:#0F172A; font-size:1.1rem; font-weight:800; margin-bottom:4px; }
+.executive-credentials .role { color:#475569; }
+.executive-org { color:#475569; font-size:0.88rem; font-weight:600; margin-top:6px; }
+.executive-links { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-top:14px; }
+.executive-cta { width:100%; min-height:44px; display:flex; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; background:linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); color:#FFFFFF !important; border:1px solid #6366F1; border-radius:10px; padding:10px 14px; font-size:0.84rem; font-weight:700; text-decoration:none !important; letter-spacing:0.01em; }
+.executive-cta.substack { background:#FFFFFF; color:#0F172A !important; border-color:#E2E8F0; }
+.executive-cta:hover { background:linear-gradient(135deg, #5B5FEF 0%, #4338CA 100%); color:#FFFFFF !important; }
+.executive-cta.substack:hover { background:#F8FAFC; color:#0F172A !important; }"""
+UPDATED_EXECUTIVE_MOBILE_CSS = """@media (max-width: 600px) {
+    .executive-banner { padding:14px; }
+    .executive-credentials { font-size:0.84rem; }
+    .executive-credentials .name { font-size:1rem; }
+    .executive-org { font-size:0.82rem; }
+    .executive-cta { width:100%; text-align:center; }
+}"""
+UPDATED_MAIN_HEADER = '''# ── Header ────────────────────────────────────────────────────────────────────
+st.title("Web3 Global Regulatory & Macroeconomic Intelligence Matrix")
+'''
+UPDATED_SIDEBAR_EXECUTIVE_BLOCK = """st.sidebar.markdown(\"\"\"
+<div class="executive-banner">
+  <div class="executive-kicker">Executive Leadership</div>
+  <div class="executive-credentials">
+    <span class="name">Melizza Anievas, LLB</span>
+    <span class="role">Global FinTech Policy &amp; Geopolitical Macro Advisor | Co-Founder, Women in Web3 Hong Kong</span>
+  </div>
+  <div class="executive-links">
+    <a class="executive-cta" href="https://www.linkedin.com/in/melizza-anievas/" target="_blank" rel="noopener noreferrer" aria-label="Book Strategic Consulting">📅 Book Strategic Consulting</a>
+    <a class="executive-cta substack" href="https://ruleofinnovation.substack.com/" target="_blank" rel="noopener noreferrer" aria-label="Substack: Rule of Innovation">📩 Substack: Rule of Innovation</a>
+  </div>
+</div>
+\"\"\", unsafe_allow_html=True)"""
+
 
 def patch_app_source(source):
     """Inject dynamic jurisdiction news lookup into the known-good dashboard source."""
@@ -140,20 +175,9 @@ def patch_app_source(source):
 .executive-cta.substack { background:#F8FAFC; color:#0B1B35 !important; border-color:#CBD5E1; }
 .executive-cta:hover { background:#F3D675; color:#07142A !important; }
 .executive-cta.substack:hover { background:#FFFFFF; }"""
-    updated_executive_css = """.executive-banner { width:100%; box-sizing:border-box; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:12px; padding:16px; margin:0 0 16px 0; box-shadow:0 10px 24px rgba(15,23,42,0.06); }
-.executive-kicker { color:#6366F1; font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; font-weight:800; margin-bottom:8px; }
-.executive-credentials { color:#475569; font-size:0.88rem; line-height:1.45; font-weight:500; }
-.executive-credentials .name { display:block; color:#0F172A; font-size:1.1rem; font-weight:800; margin-bottom:4px; }
-.executive-credentials .role { color:#475569; }
-.executive-org { color:#475569; font-size:0.88rem; font-weight:600; margin-top:6px; }
-.executive-links { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-top:14px; }
-.executive-cta { width:100%; min-height:44px; display:flex; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; background:linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); color:#FFFFFF !important; border:1px solid #6366F1; border-radius:10px; padding:10px 14px; font-size:0.84rem; font-weight:700; text-decoration:none !important; letter-spacing:0.01em; }
-.executive-cta.substack { background:#FFFFFF; color:#0F172A !important; border-color:#E2E8F0; }
-.executive-cta:hover { background:linear-gradient(135deg, #5B5FEF 0%, #4338CA 100%); color:#FFFFFF !important; }
-.executive-cta.substack:hover { background:#F8FAFC; color:#0F172A !important; }"""
     if legacy_executive_css in source:
-        source = source.replace(legacy_executive_css, updated_executive_css, 1)
-    elif updated_executive_css not in source:
+        source = source.replace(legacy_executive_css, UPDATED_EXECUTIVE_CSS, 1)
+    elif UPDATED_EXECUTIVE_CSS not in source:
         raise RuntimeError("Could not locate the executive header styles to replace")
 
     legacy_mobile_css = """@media (max-width: 600px) {
@@ -164,16 +188,9 @@ def patch_app_source(source):
     .executive-links { flex-direction:column; gap:10px; }
     .executive-cta { width:100%; text-align:center; }
 }"""
-    updated_mobile_css = """@media (max-width: 600px) {
-    .executive-banner { padding:14px; }
-    .executive-credentials { font-size:0.84rem; }
-    .executive-credentials .name { font-size:1rem; }
-    .executive-org { font-size:0.82rem; }
-    .executive-cta { width:100%; text-align:center; }
-}"""
     if legacy_mobile_css in source:
-        source = source.replace(legacy_mobile_css, updated_mobile_css, 1)
-    elif updated_mobile_css not in source:
+        source = source.replace(legacy_mobile_css, UPDATED_EXECUTIVE_MOBILE_CSS, 1)
+    elif UPDATED_EXECUTIVE_MOBILE_CSS not in source:
         raise RuntimeError("Could not locate the executive mobile styles to replace")
 
     legacy_header = '''# ── Header ────────────────────────────────────────────────────────────────────
@@ -196,34 +213,19 @@ with col_title:
 </div>
 """, unsafe_allow_html=True)
 '''
-    updated_header = '''# ── Header ────────────────────────────────────────────────────────────────────
-st.title("Web3 Global Regulatory & Macroeconomic Intelligence Matrix")
-'''
     if legacy_header in source:
-        source = source.replace(legacy_header, updated_header, 1)
-    elif updated_header not in source:
+        source = source.replace(legacy_header, UPDATED_MAIN_HEADER, 1)
+    elif UPDATED_MAIN_HEADER not in source:
         raise RuntimeError("Could not locate the main header block to replace")
 
     legacy_sidebar_header = '''# ── Sidebar ───────────────────────────────────────────────────────────────────
 # The hub list is database-driven: it is rebuilt from the normalized dataframe
 # on every Streamlit rerun, including after an approved Airtable submission.
 st.sidebar.header("🎛️ Dashboard Controls")'''
-    updated_sidebar_header = '''# ── Sidebar ───────────────────────────────────────────────────────────────────
+    updated_sidebar_header = f'''# ── Sidebar ───────────────────────────────────────────────────────────────────
 # The hub list is database-driven: it is rebuilt from the normalized dataframe
 # on every Streamlit rerun, including after an approved Airtable submission.
-st.sidebar.markdown("""
-<div class="executive-banner">
-  <div class="executive-kicker">Executive Leadership</div>
-  <div class="executive-credentials">
-    <span class="name">Melizza Anievas, LLB</span>
-    <span class="role">Global FinTech Policy &amp; Geopolitical Macro Advisor | Co-Founder, Women in Web3 Hong Kong</span>
-  </div>
-  <div class="executive-links">
-    <a class="executive-cta" href="https://www.linkedin.com/in/melizza-anievas/" target="_blank" rel="noopener noreferrer">📅 Book Strategic Consulting</a>
-    <a class="executive-cta substack" href="https://ruleofinnovation.substack.com/" target="_blank" rel="noopener noreferrer">📩 Substack: Rule of Innovation</a>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}
 st.sidebar.header("🎛️ Dashboard Controls")'''
     if legacy_sidebar_header in source:
         source = source.replace(legacy_sidebar_header, updated_sidebar_header, 1)
