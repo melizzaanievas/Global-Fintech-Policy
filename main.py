@@ -121,6 +121,179 @@ def get_latest_jurisdiction_news(jurisdiction_name, df_row):
     return _news_fallback(row)
 '''
 
+REGION_DOSSIER_PATCH = '''
+# ── Single-region dossier view ────────────────────────────────────────────────
+def _dossier_number(value, default=0.0):
+    try:
+        number = float(value)
+        return default if pd.isna(number) else number
+    except (TypeError, ValueError):
+        return default
+
+
+def _dossier_text(value, default="Not available"):
+    text = str(value or "").strip()
+    return text or default
+
+
+def build_region_dossier_html(jurisdiction, regional_row, index_row, macro_row, events):
+    region = _dossier_text(index_row.get("region") if index_row else "")
+    framework = _dossier_text(regional_row.get("framework") if regional_row else "")
+    update_title, update_url = get_latest_jurisdiction_news(
+        jurisdiction,
+        regional_row or {},
+    )
+    dimensions = [
+        ("Regulatory Clarity", "regulatory_clarity"),
+        ("Sandbox Speed", "sandbox_speed"),
+        ("Licensing Ease", "licensing_ease"),
+        ("Tax Incentives", "tax_incentives"),
+        ("Institutional Banking", "institutional_banking"),
+    ]
+    dimension_html = "".join(
+        f"<tr><th>{escape(label)}</th><td>{_dossier_number(index_row.get(key)):.1f}/10</td></tr>"
+        for label, key in dimensions
+    )
+    event_html = "".join(
+        f"<tr><td>{escape(_dossier_text(event.get('date')))}</td>"
+        f"<td>{escape(_dossier_text(event.get('label')))}</td>"
+        f"<td>{escape(_dossier_text(event.get('event')))}</td>"
+        f"<td>{_dossier_number(event.get('impact')):.0f}/10</td></tr>"
+        for event in events
+    ) or "<tr><td colspan='4'>Policy intelligence metrics under review for this region</td></tr>"
+    update_html = (
+        f"<a href='{escape(str(update_url), quote=True)}'>{escape(str(update_title))}</a>"
+        if str(update_url).strip().startswith("http")
+        else escape(str(update_title))
+    )
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>{escape(jurisdiction)} Policy Dossier</title>
+<style>
+body {{ font-family: Arial, sans-serif; color: #172033; max-width: 1050px; margin: 0 auto; padding: 28px; }}
+h1, h2 {{ color: #12345b; }} .summary {{ background: #eef5fc; padding: 18px; border-radius: 8px; }}
+table {{ width: 100%; border-collapse: collapse; margin: 12px 0 24px; }}
+th, td {{ border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }}
+th {{ background: #e2e8f0; }} .badge {{ display: inline-block; margin: 4px; padding: 8px 12px; border: 1px solid #93c5fd; border-radius: 6px; }}
+@media print {{ body {{ max-width: none; padding: 0; }} a {{ color: #172033; text-decoration: none; }} .no-print {{ display: none; }} }}
+</style></head><body>
+<h1>{escape(jurisdiction)} Policy Dossier</h1>
+<div class="summary"><h2>Regional overview</h2><p><b>Region:</b> {escape(region)}</p>
+<p>{escape(framework)}</p><p><b>Live regulatory update:</b> {update_html}</p></div>
+<h2>Ratings and metric badges</h2>
+<div>
+<span class="badge"><b>Clarity</b><br>{_dossier_number(index_row.get("regulatory_clarity") if index_row else 0):.1f}/10</span>
+<span class="badge"><b>Sandbox Speed</b><br>{_dossier_number(index_row.get("sandbox_speed") if index_row else 0):.1f}/10</span>
+<span class="badge"><b>Security / Banking</b><br>{_dossier_number(index_row.get("institutional_banking") if index_row else 0):.1f}/10</span>
+</div>
+<h2>Off-Ramp &amp; Tax Matrix</h2><table><tr><th>Dimension</th><th>Rating</th></tr>
+{dimension_html}</table>
+<p><b>Policy volatility:</b> {_dossier_number(macro_row.get("impact_score") if macro_row else 0):.0f}/10</p>
+<h2>Analytical timeline</h2><table><tr><th>Date</th><th>Event</th><th>Policy intelligence</th><th>Impact</th></tr>
+{event_html}</table>
+<p class="no-print">Print this report or use your browser's Save as PDF option.</p>
+</body></html>"""
+
+
+def render_single_region_dossier():
+    if selected_jurisdiction == "All":
+        return
+    st.header(f"📄 {selected_jurisdiction} Policy Dossier")
+    st.caption("Unified single-region view. Existing regional cluster tabs remain available below.")
+    regional_matches = regional_jurisdictions_df[
+        regional_jurisdictions_df["jurisdiction"].astype(str) == str(selected_jurisdiction)
+    ]
+    index_matches = fintech_source_df[
+        fintech_source_df["jurisdiction"].astype(str) == str(selected_jurisdiction)
+    ]
+    macro_matches = dossier_macro_source_df[
+        macro_df["jurisdiction"].astype(str) == str(selected_jurisdiction)
+    ]
+    regional_row = regional_matches.iloc[0].to_dict() if not regional_matches.empty else {}
+    index_row = index_matches.iloc[0].to_dict() if not index_matches.empty else {}
+    macro_row = macro_matches.iloc[0].to_dict() if not macro_matches.empty else {}
+
+    if regional_row:
+        st.subheader("Regional overview")
+        st.markdown(f"**{_dossier_text(regional_row.get('framework'))}**")
+        headline, link = get_latest_jurisdiction_news(selected_jurisdiction, regional_row)
+        if str(link).strip().startswith("http"):
+            st.markdown(f"🔗 [Live RSS update: {headline}]({link})")
+        else:
+            st.markdown(f"🔗 **Live RSS update:** {headline}")
+    else:
+        st.info("Policy intelligence metrics under review for this region")
+
+    if index_row:
+        st.subheader("7-Axis radar and metric badges")
+        radar_dimensions = [
+            ("Clarity", "regulatory_clarity"),
+            ("Sandbox Speed", "sandbox_speed"),
+            ("Licensing Ease", "licensing_ease"),
+            ("Tax Incentives", "tax_incentives"),
+            ("Institutional Banking", "institutional_banking"),
+            ("Composite", "composite_2026"),
+            ("10-Year Delta", "improvement_delta"),
+        ]
+        badge_cols = st.columns(3)
+        for column, (label, key) in zip(
+            badge_cols,
+            [("Clarity", "regulatory_clarity"), ("Sandbox Speed", "sandbox_speed"), ("Security", "institutional_banking")],
+        ):
+            column.metric(label, f"{_dossier_number(index_row.get(key)):.1f}/10")
+        radar_fig = go.Figure(go.Scatterpolar(
+            r=[_dossier_number(index_row.get(key)) for _, key in radar_dimensions],
+            theta=[label for label, _ in radar_dimensions],
+            fill="toself",
+            name=selected_jurisdiction,
+        ))
+        radar_fig.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
+            showlegend=False,
+            height=430,
+        )
+        st.plotly_chart(radar_fig, width="stretch")
+    else:
+        st.info("Policy intelligence metrics under review for this region")
+
+    st.subheader("Analytical timeline")
+    selected_events = timeline_events_df.to_dict("records")
+    if selected_events:
+        for event in sorted(selected_events, key=lambda row: row.get("date", ""), reverse=True):
+            st.markdown(
+                f"- **{_dossier_text(event.get('date'))} — {_dossier_text(event.get('label'))}:** "
+                f"{_dossier_text(event.get('event'))} *(impact {_dossier_number(event.get('impact')):.0f}/10)*"
+            )
+    else:
+        st.info("Policy intelligence metrics under review for this region")
+
+    st.subheader("Off-Ramp & Tax Matrix")
+    if index_row:
+        matrix_cols = st.columns(2)
+        matrix_cols[0].metric("Off-Ramp / Licensing Ease", f"{_dossier_number(index_row.get('licensing_ease')):.1f}/10")
+        matrix_cols[1].metric("Tax Incentives", f"{_dossier_number(index_row.get('tax_incentives')):.1f}/10")
+    else:
+        st.info("Policy intelligence metrics under review for this region")
+
+    dossier_html = build_region_dossier_html(
+        selected_jurisdiction,
+        regional_row,
+        index_row,
+        macro_row,
+        selected_events,
+    )
+    st.download_button(
+        label="📄 Download Region Dossier (PDF/HTML)",
+        data=dossier_html,
+        file_name=f"{selected_jurisdiction}_Policy_Dossier.html",
+        mime="text/html",
+    )
+
+
+render_single_region_dossier()
+st.divider()
+'''
+
 UPDATED_EXECUTIVE_CSS = """.executive-banner { width:100%; box-sizing:border-box; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:12px; padding:16px; margin:0 0 16px 0; box-shadow:0 10px 24px rgba(15,23,42,0.06); }
 .executive-kicker { color:#6366F1; font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; font-weight:800; margin-bottom:8px; }
 .executive-credentials { color:#475569; font-size:0.88rem; line-height:1.45; font-weight:500; }
@@ -185,6 +358,15 @@ def patch_app_source(source):
     marker = "# One current, jurisdiction-matched update per featured jurisdiction."
     if marker in source and "def get_latest_jurisdiction_news" not in source:
         source = source.replace(marker, DYNAMIC_NEWS_PATCH + "\n" + marker, 1)
+
+    dossier_marker = "# ════════════════════════════════════════════════════════════════════════════════\n# SECTION 1: Regional Fintech Intelligence"
+    if dossier_marker in source and "def render_single_region_dossier" not in source:
+        source = source.replace(dossier_marker, REGION_DOSSIER_PATCH + "\n" + dossier_marker, 1)
+        source = source.replace(
+            "macro_df = macro_df[macro_df[\"impact_score\"] >= min_impact]",
+            "dossier_macro_source_df = macro_df.copy()\nmacro_df = macro_df[macro_df[\"impact_score\"] >= min_impact]",
+            1,
+        )
 
     legacy_executive_css = """.executive-banner { width:100%; box-sizing:border-box; background:#0B1B35; border:1px solid #D4AF37; border-left:6px solid #D4AF37; border-radius:4px; padding:20px 22px 22px 22px; margin:0 0 8px 0; box-shadow:0 8px 20px rgba(7,20,42,0.18); }
 .executive-banner .executive-title { color:#F8FAFC !important; font-size:clamp(1.65rem,3vw,2.55rem); line-height:1.12; font-weight:850; letter-spacing:-0.02em; margin:0 0 18px 0; }
