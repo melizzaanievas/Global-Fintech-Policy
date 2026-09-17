@@ -135,6 +135,7 @@ UPDATED_EXECUTIVE_MOBILE_CSS = """@media (max-width: 600px) {
 UPDATED_MAIN_HEADER = '''# ── Header ────────────────────────────────────────────────────────────────────
 st.title("Web3 Global Regulatory & Macroeconomic Intelligence Matrix")
 '''
+SIDEBAR_EXECUTIVE_GUARD = '<div class="executive-kicker">Executive Leadership</div>'
 UPDATED_SIDEBAR_EXECUTIVE_BLOCK = """st.sidebar.markdown(\"\"\"
 <div class="executive-banner">
   <div class="executive-kicker">Executive Leadership</div>
@@ -218,7 +219,7 @@ with col_title:
     updated_sidebar_header = (
         f"{UPDATED_SIDEBAR_EXECUTIVE_BLOCK}\n{sidebar_header_marker}"
     )
-    if UPDATED_SIDEBAR_EXECUTIVE_BLOCK not in source:
+    if SIDEBAR_EXECUTIVE_GUARD not in source:
         source = replace_if_present(source, sidebar_header_marker, updated_sidebar_header)
 
     legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
