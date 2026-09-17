@@ -223,7 +223,8 @@ st.sidebar.header("🎛️ Dashboard Controls")'''
 # on every Streamlit rerun, including after an approved Airtable submission.
 {UPDATED_SIDEBAR_EXECUTIVE_BLOCK}
 st.sidebar.header("🎛️ Dashboard Controls")'''
-    source = replace_if_present(source, legacy_sidebar_header, updated_sidebar_header)
+    if UPDATED_SIDEBAR_EXECUTIVE_BLOCK not in source:
+        source = replace_if_present(source, legacy_sidebar_header, updated_sidebar_header)
 
     legacy_render = '''            regional_news_title, regional_news_url = jurisdiction_update(jur["name"])
             update_link = (
