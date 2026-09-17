@@ -246,9 +246,15 @@ with col_title:
                 f"{update_link}"
             )'''
     dynamic_render = '''            headline, link = get_latest_jurisdiction_news(jur["name"], jur)
+            normalized_link = str(link or "").strip()
+            update_text = (
+                f"[{headline}]({normalized_link})"
+                if normalized_link.startswith("http")
+                else headline
+            )
             st.markdown(
                 f"- **Latest regional fintech update — reviewed {regional_review_date}:** "
-                f"[{headline}]({link})"
+                f"{update_text}"
             )'''
     if legacy_render in source:
         source = source.replace(legacy_render, dynamic_render, 1)
